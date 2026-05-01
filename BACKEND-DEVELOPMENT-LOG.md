@@ -23,7 +23,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B01 | Done | 无 | 进入 B02 基础设施与数据库规划 |
+| B02 | Done | 无 | 进入 B03 认证与用户偏好规划 |
 
 ## 阶段拆分
 
@@ -31,7 +31,7 @@
 |------|------|------|---------------|----------|-----------|----------|------|
 | B00 | 流程初始化 | 建立三 Agent 流程、开发日志、AGENTS.md 规则 | [x] | [x] | [x] | 无 | 文档和日志初始化完成 |
 | B01 | Spring Boot 骨架 | `backend-spring` 项目、Gradle、基础配置、健康检查、统一响应、异常处理、会话当前 Agent 状态显示 | [x] | [x] | [x] | 无 | 先不接业务表 |
-| B02 | 基础设施与数据库 | Docker Compose、PostgreSQL、Redis、MinIO、Flyway V1 schema | [ ] | [ ] | [ ] | 待开始 | Milvus 可先独立启动 |
+| B02 | 基础设施与数据库 | Docker Compose、PostgreSQL、Redis、MinIO、Flyway V1 schema | [x] | [x] | [x] | 无 | Milvus 只提供独立启动说明 |
 | B03 | 认证与用户偏好 | Auth、JWT、`/auth/me`、`/me/preferences`、active thread 规则 | [ ] | [ ] | [ ] | 待开始 | 保持 query/localStorage/default 兼容 |
 | B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [ ] | [ ] | [ ] | 待开始 | 前端可先只读接入 |
 | B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [ ] | [ ] | [ ] | 待开始 | 暂不启用真实 Agent |
@@ -165,6 +165,78 @@
     - 修正后端健康检查路径为 `/api/v1/health`，保持 `/api/v1` 前缀一致。
     - 修正统一响应格式为 `{ code, message, data, request_id }` / `{ code, message, details, request_id }`。
     - 为 `WebMvcTest` 注册 `CorsProperties`，修复异常处理测试上下文启动失败。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B02 - 基础设施与数据库
+
+- Planning Agent:
+  - [x] 阶段范围已确认：Docker Compose 启动 PostgreSQL 16、Redis 7、MinIO；Spring 接入 datasource/Flyway/Redis/MinIO 配置；Flyway V1 只建 schema。
+  - [x] 验收标准已确认：默认 profile 不强依赖外部基础设施；dev profile 可连接 compose；`./gradlew clean test` 不需要 Docker 也能通过。
+  - [x] 依赖和风险已记录：mock seed 留到 B04；Milvus 不进入 B02 主 compose；`gen_random_uuid()` 需要 `pgcrypto` extension。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `docker/docker-compose.yml`
+    - `docker/README.md`
+    - `backend-spring/build.gradle`
+    - `backend-spring/src/main/resources/application.yml`
+    - `backend-spring/src/main/resources/application-dev.yml`
+    - `backend-spring/src/main/resources/db/migration/V1__init_schema.sql`
+    - `backend-spring/src/main/java/com/agentdesk/backend/config/InfrastructureProperties.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/AgentDeskBackendApplicationTests.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/config/FlywayMigrationTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/config/InfrastructurePropertiesTest.java`
+    - `README.md`
+  - 自测命令：
+    - `docker compose -f docker/docker-compose.yml config`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew bootJar`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过：默认 profile 运行时健康检查通过
+  - 测试命令：
+    - `docker compose -f docker/docker-compose.yml config`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && ./gradlew bootRun --args='--server.port=18080'`
+    - `curl -s -i http://localhost:18080/actuator/health`
+    - `curl -s -i -H 'X-Request-Id: b02-default' http://localhost:18080/api/v1/health`
+    - `docker compose -f docker/docker-compose.yml down -v && docker compose -f docker/docker-compose.yml up -d postgres redis minio`
+    - `docker compose -f docker/docker-compose.yml exec -T postgres pg_isready -U agentdesk -d agentdesk`
+    - `docker compose -f docker/docker-compose.yml exec -T redis redis-cli ping`
+    - `curl -sf http://localhost:9000/minio/health/live`
+    - `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `docker compose -f docker/docker-compose.yml exec -T postgres psql -U agentdesk -d agentdesk -Atc "select version, success from flyway_schema_history order by installed_rank;"`
+    - `docker compose -f docker/docker-compose.yml exec -T postgres psql -U agentdesk -d agentdesk -Atc "select tablename from pg_tables where schemaname='public' order by tablename;"`
+    - `docker compose -f docker/docker-compose.yml exec -T redis redis-cli XADD b02.smoke '*' type ping`
+  - 测试结果：
+    - Compose 静态配置：通过，包含 `postgres`、`redis`、`minio`、`minio-init`
+    - 后端 `./gradlew clean test`：通过
+    - 后端 `./gradlew bootJar`：通过
+    - 默认 profile `bootRun`：通过，不连接 PostgreSQL/Redis/Flyway
+    - `/actuator/health`：200，`UP`
+    - `/api/v1/health`：200，返回 `code=0`、`message=ok`、`request_id=b02-default`
+    - Docker daemon：启动后可用，Docker Server `29.4.0`
+    - PostgreSQL：`pg_isready` 通过，Flyway `V1` success=`t`
+    - Redis：`PING` 返回 `PONG`，Stream 写入/读取/删除通过
+    - MinIO：健康检查通过，`minio-init` 创建 `agent-desk-dev` bucket
+    - dev profile：`SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks` 通过
+    - dev profile `/actuator/health`：200，包含 `db=UP` 和 `redis=UP`
+    - schema 表清单：包含 `users`、`projects`、`user_configs`、`folders`、`threads`、`messages`、`roles`、`thread_roles`、`skills`、`mcp_endpoints`、`mcp_health_checks`、`task_logs`、`rag_documents`、`rag_chunks`、`rag_index_jobs`
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - Redis dev 改为无密码，匹配本地 `redis-cli ping` 验收命令。
+    - 新增 `minio-init` 服务创建 `agent-desk-dev` bucket。
+    - Flyway schema test 补齐 `user_configs`、`mcp_health_checks` 和 `streamable_http` 覆盖。
+    - 调整默认 profile 断言测试，使其在 dev profile 下跳过，避免 dev 连接测试误判。
 - Gate:
   - [x] Dev Done
   - [x] Test Done

@@ -45,6 +45,44 @@ curl http://localhost:8080/actuator/health
 curl http://localhost:8080/api/v1/health
 ```
 
+### B02 基础设施
+
+B02 的开发基础设施位于 `docker/docker-compose.yml`，包含 PostgreSQL 16、Redis 7 和 MinIO。默认 Spring profile 不连接外部基础设施；需要数据库、Redis 和 Flyway migration 时使用 `dev` profile。
+`minio-init` 会创建本地开发 bucket：`agent-desk-dev`。
+
+启动基础设施：
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+docker compose -f docker/docker-compose.yml ps
+```
+
+使用 `dev` profile 启动后端并执行 Flyway：
+
+```bash
+cd backend-spring
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
+```
+
+验证：
+
+```bash
+curl http://localhost:8080/actuator/health
+docker compose -f docker/docker-compose.yml exec postgres psql -U agentdesk -d agentdesk -c "\\dt"
+docker compose -f docker/docker-compose.yml exec redis redis-cli ping
+```
+
+默认 dev 连接信息：
+
+| 服务 | 地址 | 账号 |
+|------|------|------|
+| PostgreSQL | `localhost:5432/agentdesk` | `agentdesk` / `agentdesk_dev_password` |
+| Redis | `localhost:6379` | no password in local dev |
+| MinIO API | `http://localhost:9000` | `agentdesk` / `agentdesk_dev_minio_password` |
+| MinIO Console | `http://localhost:9001` | `agentdesk` / `agentdesk_dev_minio_password` |
+
+Milvus 不在 B02 强制编排范围内。RAG metadata 已落 PostgreSQL，向量库后续按 `docker/README.md` 中的 standalone Milvus 说明单独启动，并在启用前保持 `agent-desk.infrastructure.milvus.enabled=false`。
+
 ## 测试
 
 ```bash

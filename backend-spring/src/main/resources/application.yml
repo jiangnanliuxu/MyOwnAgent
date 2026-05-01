@@ -31,3 +31,40 @@ management:
 agent-desk:
   api:
     version: v1
+  infrastructure:
+    enabled: false
+    postgres:
+      host: localhost
+      port: 5432
+      database: agentdesk
+    redis:
+      host: localhost
+      port: 6379
+    minio:
+      endpoint: http://localhost:9000
+      bucket: agent-desk-dev
+    milvus:
+      enabled: false
+      endpoint: http://localhost:19530
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!dev"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  flyway:
+    enabled: false
+
+management:
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
