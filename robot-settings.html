@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Desk / 机器人设置</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <aside class="sidebar settings-sidebar">
+        <section class="recent-file-block">
+          <div class="sidebar-section-head">
+            <span>角色编排</span>
+            <span class="light-meta" id="role-count">0 个</span>
+          </div>
+          <div class="dialogue-summary-card">
+            <strong id="selected-thread-label">当前对话</strong>
+            <span id="selected-thread-file">src/auth/useSession.ts</span>
+            <p id="selected-thread-copy">从工作台只保留一个高亮会话后，这里只展示该会话实际参与的角色。</p>
+          </div>
+          <div class="agent-directory" id="agent-directory" aria-label="角色编排"></div>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <section class="settings-surface">
+          <div class="surface-top">
+            <div class="stage-meta">
+              <span class="stage-kicker">机器人设置</span>
+              <h2>Agent Profiles</h2>
+              <p class="page-note">
+                这一页跟随当前选中的会话走，只显示这个会话真实参与的角色、路由和新增角色方式。
+              </p>
+            </div>
+            <div class="top-actions">
+              <a class="nav-pill" href="./index.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 18 9 12l6-6"></path>
+                </svg>
+                <span>返回工作台</span>
+              </a>
+              <a class="nav-pill" href="./settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v3"></path>
+                  <path d="M12 18v3"></path>
+                  <path d="m4.9 4.9 2.1 2.1"></path>
+                  <path d="m17 17 2.1 2.1"></path>
+                  <path d="M3 12h3"></path>
+                  <path d="M18 12h3"></path>
+                  <path d="m4.9 19.1 2.1-2.1"></path>
+                  <path d="m17 7 2.1-2.1"></path>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                </svg>
+                <span>设置</span>
+              </a>
+              <a class="nav-pill is-active" href="./robot-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                  <path d="M12 4v4"></path>
+                  <path d="M9 12h.01"></path>
+                  <path d="M15 12h.01"></path>
+                  <path d="M9 16h6"></path>
+                </svg>
+                <span>机器人设置</span>
+              </a>
+              <a class="nav-pill" href="./integration-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7h8"></path>
+                  <path d="M8 12h8"></path>
+                  <path d="M8 17h5"></path>
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+                <span>能力管理</span>
+              </a>
+              <span class="soft-clock" id="clock-02">23:40</span>
+            </div>
+          </div>
+
+          <div class="settings-content">
+            <section class="settings-panel">
+              <div class="panel-head">
+                <strong>当前对话</strong>
+                <span id="context-role-total">3 个角色</span>
+              </div>
+              <div class="context-strip">
+                <div class="context-chip">
+                  <span>关联文件</span>
+                  <strong id="context-file">src/auth/useSession.ts</strong>
+                </div>
+                <div class="context-chip">
+                  <span>选中会话</span>
+                  <strong id="context-thread">review-agent</strong>
+                </div>
+                <div class="context-chip">
+                  <span>联动说明</span>
+                  <strong>角色编排、当前角色和角色矩阵同步刷新</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="primary-agent">
+              <div class="panel-head">
+                <strong>当前角色</strong>
+                <span id="active-role-tag">Primary Agent</span>
+              </div>
+              <div class="agent-identity">
+                <div class="identity-main">
+                  <div class="identity-title">
+                    <span class="agent-avatar" id="active-role-avatar" aria-hidden="true"></span>
+                    <div>
+                      <strong id="active-role-name">主助手</strong>
+                      <span id="active-role-description">负责拆解任务、调度子 agent、把最后结果整理给用户。</span>
+                    </div>
+                  </div>
+                  <div class="inline-edit-list">
+                    <div class="inline-edit-card">
+                      <div class="inline-edit-copy">
+                        <span class="inline-edit-label">编辑对象</span>
+                        <strong id="active-role-target">主助手</strong>
+                      </div>
+                      <span class="inline-static-note">从左侧角色编排或角色矩阵切换</span>
+                    </div>
+                    <div class="inline-edit-card">
+                      <div class="inline-edit-copy">
+                        <span class="inline-edit-label">默认模型</span>
+                        <strong id="active-role-model">GPT-5.4</strong>
+                      </div>
+                      <button class="tiny-action" id="open-model-config" type="button">切换模型</button>
+                    </div>
+                    <div class="inline-edit-card">
+                      <div class="inline-edit-copy">
+                        <span class="inline-edit-label">压缩强度</span>
+                        <strong id="active-role-compression">中压缩</strong>
+                      </div>
+                      <button class="tiny-action" id="open-compression-config" type="button">调整强度</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="quick-action-stack">
+                  <button class="quick-edit-button" id="edit-role-description" type="button">修改角色说明</button>
+                  <button class="quick-edit-button" id="edit-prompt-prefix" type="button">编辑提示前缀</button>
+                  <button class="quick-edit-button" id="copy-role-config" type="button">复制当前角色配置</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="route-agent">
+              <div class="panel-head">
+                <strong>模型与工具路由</strong>
+                <span>Routing</span>
+              </div>
+              <div class="field-list">
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>主模型分配</strong>
+                    <span id="active-role-routing">复杂协调交给主助手，快速扫面和结构化检查交给专职 agent。</span>
+                  </div>
+                  <div class="chip-row" id="routing-chip-row"></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>工具权限</strong>
+                    <span>不同角色只暴露必要的读写与浏览能力，减少角色漂移。</span>
+                  </div>
+                  <div class="tool-row" id="active-role-tools"></div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>交接规则</strong>
+                    <span>当前角色在这个会话里的交接口径，保持和左侧角色编排一致。</span>
+                  </div>
+                  <div class="value-box" id="active-role-handoff">子角色只给摘要，不直接抢答</div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>提示前缀</strong>
+                    <span>当前角色接任务前先收紧自己的工作边界，避免拿错职责。</span>
+                  </div>
+                  <div class="value-box" id="active-role-prefix">先站在当前角色职责内行动，超出边界时回传摘要。</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="test-agent">
+              <div class="panel-head">
+                <strong>角色矩阵</strong>
+                <span>Role Matrix</span>
+              </div>
+              <div class="matrix-grid" id="role-matrix"></div>
+            </section>
+
+            <section class="settings-panel" id="snapshot-agent">
+              <div class="panel-head">
+                <strong>新增机器人入口</strong>
+                <span>Expansion</span>
+              </div>
+              <div class="field-list">
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>命名规范</strong>
+                    <span>别名改成直接可编辑的输入框，角色职责用预置复选框和自定义补充来表达。</span>
+                  </div>
+                  <div class="field-stack">
+                    <label class="stack-label" for="alias-input">别名</label>
+                    <input class="text-input" id="alias-input" type="text" value="orchestrator" />
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>角色职责</strong>
+                    <span>先勾 2 到 4 个职责方向就够了，不够再补一句自定义说明。</span>
+                  </div>
+                  <div class="responsibility-stack">
+                    <div class="duty-hint-row">
+                      <span class="status-chip">分析排查</span>
+                      <span class="status-chip">验证回归</span>
+                      <span class="status-chip">视觉确认</span>
+                      <span class="status-chip">协调汇总</span>
+                    </div>
+                    <div class="checkbox-grid" id="role-duty-options"></div>
+                    <label class="field-stack" for="custom-duty-input">
+                      <span class="stack-label">自定义职责</span>
+                      <input
+                        class="text-input"
+                        id="custom-duty-input"
+                        type="text"
+                        placeholder="例如：负责接口回放、埋点核对、验收收口"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>Prompt 注入位置</strong>
+                    <span>保留三个常见注入层级，作为新增角色时的默认落点。</span>
+                  </div>
+                  <div class="chip-row" id="prompt-layer-row"></div>
+                </div>
+              </div>
+              <div class="settings-note">当前会话切换后，左侧角色编排、当前角色卡和角色矩阵会同步刷新；新增角色表单保持编辑态，方便继续补录。</div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "option-02",
+  "version": "1.0.0",
+  "description": "Agent Desk prototype with Vue 3 frontend and Spring Boot backend architecture skeleton.",
+  "main": "script.js",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "dev": "vite --host 0.0.0.0 --port 4173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@playwright/test": "^1.59.1",
+    "pinia": "^2.3.1",
+    "playwright": "^1.59.1",
+    "puppeteer": "^24.42.0",
+    "vue": "^3.5.33",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "vite": "^6.4.2",
+    "vitest": "^2.1.9"
+  }
+}

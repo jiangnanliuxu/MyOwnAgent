@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Desk / 能力管理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <aside class="sidebar settings-sidebar">
+        <section class="recent-file-block">
+          <div class="sidebar-section-head">
+            <span>管理目录</span>
+            <span class="light-meta">4 组</span>
+          </div>
+          <div class="settings-directory">
+            <a class="directory-item is-active" href="#skill-overview">
+              <strong>Skill 管理</strong>
+              <span>安装来源、启用状态、Prompt 注入点和使用范围。</span>
+            </a>
+            <a class="directory-item" href="#prompt-mounts">
+              <strong>Prompt 装载</strong>
+              <span>技能如何进入系统层、角色层、任务层和记忆层。</span>
+            </a>
+            <a class="directory-item" href="#mcp-overview">
+              <strong>MCP 接口管理</strong>
+              <span>传输方式、认证、地址映射、健康检查和失败回退。</span>
+            </a>
+            <a class="directory-item" href="#integration-health">
+              <strong>运行健康</strong>
+              <span>查看最近的联调状态、冷启动耗时和失败原因。</span>
+            </a>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <section class="settings-surface">
+          <div class="surface-top">
+            <div class="stage-meta">
+              <span class="stage-kicker">能力管理</span>
+              <h2>Skill &amp; MCP</h2>
+              <p class="page-note">
+                这一页负责管理 agent 的能力来源和接口边界，既看 skill 是怎么装进去的，也看 MCP 是怎么接进来的。
+              </p>
+            </div>
+            <div class="top-actions">
+              <a class="nav-pill" href="./index.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 18 9 12l6-6"></path>
+                </svg>
+                <span>返回工作台</span>
+              </a>
+              <a class="nav-pill" href="./settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v3"></path>
+                  <path d="M12 18v3"></path>
+                  <path d="m4.9 4.9 2.1 2.1"></path>
+                  <path d="m17 17 2.1 2.1"></path>
+                  <path d="M3 12h3"></path>
+                  <path d="M18 12h3"></path>
+                  <path d="m4.9 19.1 2.1-2.1"></path>
+                  <path d="m17 7 2.1-2.1"></path>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                </svg>
+                <span>设置</span>
+              </a>
+              <a class="nav-pill" href="./robot-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                  <path d="M12 4v4"></path>
+                  <path d="M9 12h.01"></path>
+                  <path d="M15 12h.01"></path>
+                  <path d="M9 16h6"></path>
+                </svg>
+                <span>机器人设置</span>
+              </a>
+              <a class="nav-pill is-active" href="./integration-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7h8"></path>
+                  <path d="M8 12h8"></path>
+                  <path d="M8 17h5"></path>
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+                <span>能力管理</span>
+              </a>
+              <span class="soft-clock" id="clock-02">23:40</span>
+            </div>
+          </div>
+
+          <div class="settings-content">
+            <section class="settings-panel" id="skill-overview">
+              <div class="panel-head">
+                <strong>Skill 管理</strong>
+                <span id="skill-count-label">0 个已装载</span>
+              </div>
+              <div class="context-strip">
+                <div class="context-chip">
+                  <span>默认挂载</span>
+                  <strong>系统层 + 角色层</strong>
+                </div>
+                <div class="context-chip">
+                  <span>当前策略</span>
+                  <strong>按页面场景自动装载</strong>
+                </div>
+                <div class="context-chip">
+                  <span>最近变更</span>
+                  <strong id="latest-skill-change">frontend-design 已接入</strong>
+                </div>
+              </div>
+              <div class="section-action-bar">
+                <button class="tiny-action" id="open-install-skill" type="button">新增 Skill</button>
+                <button class="tiny-action" id="open-sync-skill-policy" type="button">同步装载策略</button>
+              </div>
+              <div class="catalog-grid" id="skill-catalog"></div>
+            </section>
+
+            <section class="settings-panel" id="prompt-mounts">
+              <div class="panel-head">
+                <strong>Prompt 装载</strong>
+                <span>Mount Rules</span>
+              </div>
+              <div class="mount-grid" id="skill-mount-grid"></div>
+            </section>
+
+            <section class="settings-panel" id="mcp-overview">
+              <div class="panel-head">
+                <strong>MCP 接口管理</strong>
+                <span id="endpoint-count-label">0 条接口</span>
+              </div>
+              <div class="section-action-bar">
+                <button class="tiny-action" id="open-add-endpoint" type="button">新增接口</button>
+                <button class="tiny-action" id="open-endpoint-check" type="button">批量健康检查</button>
+              </div>
+              <div class="endpoint-list" id="mcp-endpoint-list"></div>
+            </section>
+
+            <section class="settings-panel" id="integration-health">
+              <div class="panel-head">
+                <strong>运行健康</strong>
+                <span>Health Checks</span>
+              </div>
+              <div class="health-list" id="integration-health-list"></div>
+              <div class="settings-note">Skill 负责“能力来源”，MCP 负责“接口入口”，这两层一起稳定，平台才会真正稳定。</div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

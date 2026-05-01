@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Desk / 助手工作台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <aside class="sidebar">
+        <section class="recent-file-block">
+          <div class="sidebar-section-head">
+            <span>最近关联文件</span>
+            <span class="light-meta">3 个</span>
+          </div>
+          <div class="file-mini-list">
+            <details class="file-accordion active" open>
+              <summary class="file-mini-item">
+                <div>
+                  <strong>src/auth/useSession.ts</strong>
+                  <span>2 个 Agent 对话</span>
+                </div>
+                <span class="accordion-arrow" aria-hidden="true"></span>
+              </summary>
+              <div class="agent-thread-list">
+                <button class="agent-thread-card is-active" type="button" data-thread-id="session-review">
+                  <strong>review-agent</strong>
+                  <p>正在梳理 session 状态变更点</p>
+                </button>
+                <button class="agent-thread-card" type="button" data-thread-id="session-auth">
+                  <strong>auth-agent</strong>
+                  <p>已标记 token 刷新与超时回收逻辑</p>
+                </button>
+              </div>
+            </details>
+
+            <details class="file-accordion">
+              <summary class="file-mini-item">
+                <div>
+                  <strong>src/router/guard.ts</strong>
+                  <span>3 个 Agent 对话</span>
+                </div>
+                <span class="accordion-arrow" aria-hidden="true"></span>
+              </summary>
+              <div class="agent-thread-list">
+                <button class="agent-thread-card" type="button" data-thread-id="route-primary">
+                  <strong>route-agent</strong>
+                  <p>关注未登录跳转与白名单路径</p>
+                </button>
+                <button class="agent-thread-card" type="button" data-thread-id="route-review">
+                  <strong>review-agent</strong>
+                  <p>正在检查守卫依赖的 session 来源</p>
+                </button>
+                <button class="agent-thread-card" type="button" data-thread-id="route-test">
+                  <strong>test-agent</strong>
+                  <p>准备生成重定向回归用例</p>
+                </button>
+              </div>
+            </details>
+
+            <details class="file-accordion">
+              <summary class="file-mini-item">
+                <div>
+                  <strong>tests/auth-login.spec.ts</strong>
+                  <span>2 个 Agent 对话</span>
+                </div>
+                <span class="accordion-arrow" aria-hidden="true"></span>
+              </summary>
+              <div class="agent-thread-list">
+                <button class="agent-thread-card" type="button" data-thread-id="login-test">
+                  <strong>test-agent</strong>
+                  <p>待补登录失败与重定向断言</p>
+                </button>
+                <button class="agent-thread-card" type="button" data-thread-id="login-snapshot">
+                  <strong>snapshot-agent</strong>
+                  <p>正在核对认证流程截图变化</p>
+                </button>
+              </div>
+            </details>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <section class="conversation-surface">
+          <div class="surface-top">
+            <div class="stage-meta">
+              <span class="stage-kicker">当前工作区</span>
+              <h2 id="active-file-title">src/auth/useSession.ts</h2>
+            </div>
+            <div class="top-actions">
+              <a class="nav-pill" href="./settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v3"></path>
+                  <path d="M12 18v3"></path>
+                  <path d="m4.9 4.9 2.1 2.1"></path>
+                  <path d="m17 17 2.1 2.1"></path>
+                  <path d="M3 12h3"></path>
+                  <path d="M18 12h3"></path>
+                  <path d="m4.9 19.1 2.1-2.1"></path>
+                  <path d="m17 7 2.1-2.1"></path>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                </svg>
+                <span>设置</span>
+              </a>
+              <a class="nav-pill" id="robot-settings-link" href="./robot-settings.html?thread=session-review">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                  <path d="M12 4v4"></path>
+                  <path d="M9 12h.01"></path>
+                  <path d="M15 12h.01"></path>
+                  <path d="M9 16h6"></path>
+                </svg>
+                <span>机器人设置</span>
+              </a>
+              <a class="nav-pill" href="./integration-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7h8"></path>
+                  <path d="M8 12h8"></path>
+                  <path d="M8 17h5"></path>
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+                <span>能力管理</span>
+              </a>
+              <span class="soft-clock" id="clock-02">23:40</span>
+            </div>
+          </div>
+
+          <div class="conversation-stack">
+            <div class="bubble user">
+              <strong>你</strong>
+              <p>我想尽快知道这次重构会影响哪些页面和测试。</p>
+            </div>
+            <div class="bubble agent">
+              <strong class="agent-title">
+                <span class="agent-avatar" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                    <path d="M12 4v4"></path>
+                    <path d="M9 12h.01"></path>
+                    <path d="M15 12h.01"></path>
+                    <path d="M9 16h6"></path>
+                  </svg>
+                </span>
+                <span>主助手</span>
+              </strong>
+              <p>我已经锁定认证模块、路由守卫和两组回归测试。建议先跑关键路径，再把差异归类。</p>
+            </div>
+            <div class="bubble user">
+              <strong>你</strong>
+              <p>那先告诉我最可能改动的文件，再给一个最小验证顺序。</p>
+            </div>
+            <div class="bubble agent" id="suggestion-bubble">
+              <strong class="agent-title">
+                <span class="agent-avatar" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                    <path d="M12 4v4"></path>
+                    <path d="M9 12h.01"></path>
+                    <path d="M15 12h.01"></path>
+                    <path d="M9 16h6"></path>
+                  </svg>
+                </span>
+                <span>主助手</span>
+              </strong>
+              <p>优先看 `src/auth/useSession.ts`、`src/router/guard.ts` 和 `tests/auth-login.spec.ts`，然后先验证登录主路径。</p>
+            </div>
+          </div>
+
+          <div class="composer-card">
+            <div class="composer-box" id="composer-box">
+              <div
+                class="composer-text"
+                id="composer-text"
+                contenteditable="true"
+                role="textbox"
+                aria-label="输入请求"
+                data-placeholder="继续补充你的任务、限制条件或想优先看的文件。"
+              >
+                帮我列一下这三个文件各自可能受影响的逻辑点，并按验证优先级排序。
+              </div>
+              <div class="composer-line">
+                <span class="stage-kicker" id="composer-thread-chip">当前线程 / review-agent</span>
+                <span class="light-meta" id="composer-context-chip">已附带当前文件与最近建议</span>
+              </div>
+              <div class="composer-tools" aria-label="输入操作">
+                <button class="icon-button primary" id="composer-send" type="button" data-tooltip="发送">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 11.5 20.5 4l-4.6 16-4.1-6.2L3 11.5Z"></path>
+                    <path d="m20.5 4-8.7 9.8"></path>
+                  </svg>
+                </button>
+                <button class="icon-button" id="composer-attach-file" type="button" data-tooltip="附加当前文件">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 7v10"></path>
+                    <path d="M7 12h10"></path>
+                    <path d="M6 4h8l4 4v12H6z"></path>
+                  </svg>
+                </button>
+                <button class="icon-button" id="composer-insert-terminal" type="button" data-tooltip="插入终端输出">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m5 7 4 5-4 5"></path>
+                    <path d="M12 17h7"></path>
+                    <path d="M4 4h16v16H4z"></path>
+                  </svg>
+                </button>
+                <button class="icon-button send-key" id="composer-send-hotkey" type="button" data-tooltip="回车发送">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 7v6H8"></path>
+                    <path d="m12 9-4 4 4 4"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

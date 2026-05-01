@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Desk / 设置</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-frame">
+      <aside class="sidebar settings-sidebar">
+        <section class="recent-file-block">
+          <div class="sidebar-section-head">
+            <span>设置目录</span>
+            <span class="light-meta">4 组</span>
+          </div>
+          <div class="settings-directory">
+            <a class="directory-item is-active" href="#workspace-defaults">
+              <strong>工作区偏好</strong>
+              <span>布局密度、输入节奏、默认上下文呈现。</span>
+            </a>
+            <a class="directory-item" href="#execution-guard">
+              <strong>执行边界</strong>
+              <span>工具调用、外部动作、提交前确认规则。</span>
+            </a>
+            <a class="directory-item" href="#context-ops">
+              <strong>上下文管理</strong>
+              <span>压缩策略、内容备份、恢复边界。</span>
+            </a>
+            <a class="directory-item" href="#platform-entry">
+              <strong>平台逻辑入口</strong>
+              <span>任务队列、运行日志、工具授权、记忆入口。</span>
+            </a>
+          </div>
+        </section>
+      </aside>
+
+      <main class="main-stage">
+        <section class="settings-surface">
+          <div class="surface-top">
+            <div class="stage-meta">
+              <span class="stage-kicker">系统设置</span>
+              <h2>Workspace Settings</h2>
+              <p class="page-note">
+                先把工作区的默认手感定下来，再决定 agent 如何接手、何时提醒、何时越界前停一下。
+              </p>
+            </div>
+            <div class="top-actions">
+              <a class="nav-pill" href="./index.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 18 9 12l6-6"></path>
+                </svg>
+                <span>返回工作台</span>
+              </a>
+              <a class="nav-pill is-active" href="./settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 3v3"></path>
+                  <path d="M12 18v3"></path>
+                  <path d="m4.9 4.9 2.1 2.1"></path>
+                  <path d="m17 17 2.1 2.1"></path>
+                  <path d="M3 12h3"></path>
+                  <path d="M18 12h3"></path>
+                  <path d="m4.9 19.1 2.1-2.1"></path>
+                  <path d="m17 7 2.1-2.1"></path>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                </svg>
+                <span>设置</span>
+              </a>
+              <a class="nav-pill" href="./robot-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="6" y="8" width="12" height="10" rx="2"></rect>
+                  <path d="M12 4v4"></path>
+                  <path d="M9 12h.01"></path>
+                  <path d="M15 12h.01"></path>
+                  <path d="M9 16h6"></path>
+                </svg>
+                <span>机器人设置</span>
+              </a>
+              <a class="nav-pill" href="./integration-settings.html">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 7h8"></path>
+                  <path d="M8 12h8"></path>
+                  <path d="M8 17h5"></path>
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+                <span>能力管理</span>
+              </a>
+              <span class="soft-clock" id="clock-02">23:40</span>
+            </div>
+          </div>
+
+          <div class="settings-content">
+            <section class="settings-panel" id="workspace-defaults">
+              <div class="panel-head">
+                <strong>工作区偏好</strong>
+                <span>Workspace Defaults</span>
+              </div>
+              <div class="field-list">
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>默认布局密度</strong>
+                    <span>让文件、会话和工具输出保持同一种阅读压缩比，减少频繁切换的视觉噪音。</span>
+                  </div>
+                  <div class="segmented">
+                    <button class="seg-chip is-active" type="button">紧凑</button>
+                    <button class="seg-chip" type="button">舒展</button>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>输入框默认模式</strong>
+                    <span>主输入框优先保留上下文式长指令，还是偏向快速命令式短输入。</span>
+                  </div>
+                  <div class="chip-row">
+                    <span class="status-chip">上下文优先</span>
+                    <span class="toggle-chip">快捷命令</span>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>侧栏宽度基线</strong>
+                    <span>保留足够的文件与角色信息，同时不压缩主会话区。</span>
+                  </div>
+                  <div class="range-readout">
+                    <div class="range-track"></div>
+                    <div class="range-caption">300px / 中等宽度</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="execution-guard">
+              <div class="panel-head">
+                <strong>执行边界</strong>
+                <span>Safety Rules</span>
+              </div>
+              <div class="field-list">
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>提交外部动作前停一下</strong>
+                    <span>发送消息、提交表单、改权限这类动作先停在最后一步，等用户明确确认。</span>
+                  </div>
+                  <div class="segmented">
+                    <button class="seg-chip is-active" type="button">开启</button>
+                    <button class="seg-chip" type="button">关闭</button>
+                  </div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>本地写入范围</strong>
+                    <span>优先限制在当前项目和桌面草稿目录，避免大范围修改造成打扰。</span>
+                  </div>
+                  <div class="value-box">当前项目 + 桌面候选目录</div>
+                </div>
+                <div class="field-row">
+                  <div class="field-copy">
+                    <strong>浏览器接管阈值</strong>
+                    <span>遇到登录、隐私字段或代表用户提交时自动切换到人工确认节点。</span>
+                  </div>
+                  <div class="chip-row">
+                    <span class="status-chip">严格</span>
+                    <span class="toggle-chip">宽松</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="context-ops">
+              <div class="panel-head">
+                <strong>上下文管理</strong>
+                <span>Context Control</span>
+              </div>
+              <div class="prompt-stack">
+                <div class="prompt-block">
+                  <strong>上下文压缩</strong>
+                  <p>当会话过长时，优先保留当前文件、最近操作链和角色分工，把较早对话压成结构化摘要，不让旧内容持续占满窗口。</p>
+                  <div class="prompt-action-row">
+                    <button class="tiny-action" type="button" data-modal="compression-settings">立即压缩</button>
+                  </div>
+                </div>
+                <div class="prompt-block">
+                  <strong>上下文内容备份</strong>
+                  <p>重要对话、阶段结论、角色 Prompt 和交付摘要在压缩前先生成备份快照，方便回放、恢复和对照不同 agent 的判断路径。</p>
+                  <div class="prompt-action-row">
+                    <button class="tiny-action" type="button" data-modal="backup-settings">生成备份</button>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-note">压缩和备份最好是并行的：一个负责让窗口变轻，一个负责让历史不丢。</div>
+            </section>
+
+            <section class="settings-panel" id="platform-entry">
+              <div class="panel-head">
+                <strong>平台逻辑入口</strong>
+                <span>Platform Entry Points</span>
+              </div>
+              <div class="dual-grid">
+                <button class="micro-card action-card" id="open-task-queue" type="button">
+                  <strong>任务队列</strong>
+                  <p>看见当前有哪些任务在排队、阻塞、运行中，以及谁在等待人工确认。</p>
+                </button>
+                <button class="micro-card action-card" id="open-run-log" type="button">
+                  <strong>运行日志</strong>
+                  <p>把 agent 的工具调用、关键决策和失败原因串成时间线，而不是散落在对话里。</p>
+                </button>
+                <button class="micro-card action-card" id="open-tool-permission" type="button">
+                  <strong>工具授权</strong>
+                  <p>统一管理文件写入、浏览器接管、外部提交这类敏感动作的权限边界。</p>
+                </button>
+                <button class="micro-card action-card" id="open-memory-backup" type="button">
+                  <strong>记忆与备份</strong>
+                  <p>把项目记忆、角色 Prompt、阶段快照和可恢复上下文放到一处集中查看。</p>
+                </button>
+                <a class="micro-card action-card" href="./integration-settings.html">
+                  <strong>Skill 与 MCP 管理</strong>
+                  <p>统一查看 skill 装载、Prompt 注入点、MCP 接口接入状态和连通性。</p>
+                </a>
+              </div>
+              <div class="settings-note">如果这是一个真正面向 agent 开发的平台，这五个入口通常会比“通知中心”更常用。</div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
