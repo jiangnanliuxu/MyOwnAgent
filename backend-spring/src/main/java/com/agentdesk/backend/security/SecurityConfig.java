@@ -41,9 +41,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/projects/*/folders",
                                 "/api/v1/projects/*/roles",
+                                "/api/v1/projects/*/skills",
                                 "/api/v1/folders/**",
                                 "/api/v1/threads/**",
-                                "/api/v1/roles/**"
+                                "/api/v1/roles/**",
+                                "/api/v1/skills/**"
                         ).authenticated()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/me/**").authenticated()
                         .anyRequest().permitAll()

@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B07 | In Progress | 无 | Planning Agent 开始 Skill 管理阶段 |
+| B08 | In Progress | 无 | Planning Agent 开始 MCP Gateway 阶段 |
 
 ## 阶段拆分
 
@@ -39,8 +39,8 @@
 | B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [x] | [x] | [x] | 无 | 前端可先只读接入 |
 | B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [x] | [x] | [x] | 无 | 暂不启用真实 Agent |
 | B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [x] | [x] | [x] | 无 | 机器人设置页核心 |
-| B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [ ] | [ ] | In Progress | Skill 不是 MCP |
-| B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [ ] | [ ] | [ ] | 待开始 | Python 不能绕过 Spring 调工具 |
+| B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [x] | [x] | 无 | Skill 不是 MCP |
+| B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [ ] | [ ] | In Progress | Python 不能绕过 Spring 调工具 |
 | B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [ ] | [ ] | [ ] | 待开始 | 先接单 Agent mock worker |
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [ ] | [ ] | [ ] | 待开始 | 不直接写核心业务表 |
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [ ] | [ ] | [ ] | 待开始 | 输入框下方文件按钮是入口 |
@@ -503,6 +503,61 @@
   - [x] 阶段范围已确认：实现项目 Skill 列表、Skill 详情/更新、启停 toggle、Prompt mount policy 保存，以及项目级 sync-policy。
   - [x] 验收标准已确认：接口需要认证和 project 归属校验；Skill 仍是 Prompt/策略/工具组合包，不混同 MCP endpoint。
   - [x] 依赖和风险已记录：依赖 B04 seed 的 `skills` 数据；B07 不执行真实 Python Skill Runner，不调用 MCP 工具。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B07 无新增 Flyway 迁移，复用 `skills` 表。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/skill/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/skill/SkillControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `GET /api/v1/projects/:id/skills`
+    - `POST /api/v1/projects/:id/skills`
+    - `PATCH /api/v1/skills/:id`
+    - `POST /api/v1/skills/:id/toggle`
+    - `POST /api/v1/projects/:id/skills/sync-policy`
+    - `GET /api/v1/skills/:id` with another user's token
+  - 测试结果：
+    - B07 定向 `SkillControllerTest`：通过
+    - B05+B06+B07 组合回归：通过
+    - 默认 profile `./gradlew clean test`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - HTTP 冒烟：Skill 列表、新增、配置更新、启停、sync-policy、跨用户 403 均通过
+    - `mounts` 标准化去重，`config` 采用 JSON merge，sync-policy 只更新启用中的 Skill
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - B07 暂不实现真实 Python Skill Runner，只更新时间和策略状态，避免混淆 Skill 与 MCP 执行边界。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B08 - MCP Gateway
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现项目 MCP endpoint 列表、新增、更新、单端点健康检查、批量健康检查、工具注册只读视图和 `/internal/tools/invoke` 占位治理入口。
+  - [x] 验收标准已确认：接口需要认证和 project 归属校验；Python Agent 后续必须通过 Spring Tool Gateway 调工具；真实 MCP 调用留到后续 transport adapter。
+  - [x] 依赖和风险已记录：依赖 B04 seed 的 `mcp_endpoints`；B08 不执行真实外部 MCP 工具，不保存明文 secret。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
