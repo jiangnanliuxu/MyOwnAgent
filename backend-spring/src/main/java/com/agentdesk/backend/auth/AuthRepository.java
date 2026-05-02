@@ -17,6 +17,10 @@ public interface AuthRepository {
 
     RegisteredUser createUserWithDefaults(String email, String name, String passwordHash);
 
+    Optional<UUID> findDefaultProjectId(UUID userId);
+
+    boolean projectBelongsToUser(UUID userId, UUID projectId);
+
     void saveRefreshToken(UUID userId, String tokenHash, Instant expiresAt);
 
     Optional<StoredRefreshToken> findValidRefreshToken(String tokenHash, Instant now);

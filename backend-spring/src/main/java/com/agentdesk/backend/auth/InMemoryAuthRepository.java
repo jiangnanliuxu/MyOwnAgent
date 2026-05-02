@@ -22,6 +22,7 @@ public class InMemoryAuthRepository implements AuthRepository {
     private final Map<UUID, UserAccount> usersById = new HashMap<>();
     private final Map<String, UUID> userIdsByEmail = new HashMap<>();
     private final Map<UUID, String> passwordHashesByUserId = new HashMap<>();
+    private final Map<UUID, UUID> defaultProjectIdsByUserId = new HashMap<>();
     private final Map<UUID, UserPreferences> preferencesByUserId = new HashMap<>();
     private final Map<String, StoredRefreshToken> refreshTokensByHash = new HashMap<>();
     private final Map<UUID, String> refreshTokenHashesById = new HashMap<>();
@@ -64,8 +65,19 @@ public class InMemoryAuthRepository implements AuthRepository {
         usersById.put(userId, user);
         userIdsByEmail.put(email, userId);
         passwordHashesByUserId.put(userId, passwordHash);
+        defaultProjectIdsByUserId.put(userId, projectId);
         preferencesByUserId.put(userId, new UserPreferences(userId, DEFAULT_THREAD_KEY, objectMapper.createObjectNode()));
         return new RegisteredUser(user, projectId);
+    }
+
+    @Override
+    public synchronized Optional<UUID> findDefaultProjectId(UUID userId) {
+        return Optional.ofNullable(defaultProjectIdsByUserId.get(userId));
+    }
+
+    @Override
+    public synchronized boolean projectBelongsToUser(UUID userId, UUID projectId) {
+        return projectId != null && projectId.equals(defaultProjectIdsByUserId.get(userId));
     }
 
     @Override

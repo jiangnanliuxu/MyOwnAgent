@@ -15,6 +15,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -50,7 +51,8 @@ public class AuthService {
         RegisteredUser registeredUser = authRepository.createUserWithDefaults(email, request.name().trim(), passwordHash);
         TokenBundle tokenBundle = issueTokens(registeredUser.user());
         return new AuthResponse(
-                UserResponse.from(registeredUser.user()),
+                UserResponse.from(registeredUser.user(), registeredUser.projectId()),
+                registeredUser.projectId(),
                 tokenBundle.accessToken(),
                 tokenBundle.refreshToken(),
                 tokenBundle.tokenType(),
@@ -67,8 +69,11 @@ public class AuthService {
         }
 
         TokenBundle tokenBundle = issueTokens(account.user());
+        UUID defaultProjectId = authRepository.findDefaultProjectId(account.user().id())
+                .orElseThrow(() -> new AuthenticationException("Default project is not available."));
         return new AuthResponse(
-                UserResponse.from(account.user()),
+                UserResponse.from(account.user(), defaultProjectId),
+                defaultProjectId,
                 tokenBundle.accessToken(),
                 tokenBundle.refreshToken(),
                 tokenBundle.tokenType(),
@@ -96,7 +101,8 @@ public class AuthService {
     public UserResponse me(AuthenticatedUser authenticatedUser) {
         UserAccount user = authRepository.findUserById(authenticatedUser.id())
                 .orElseThrow(() -> new AuthenticationException("Authentication is required."));
-        return UserResponse.from(user);
+        UUID defaultProjectId = authRepository.findDefaultProjectId(user.id()).orElse(null);
+        return UserResponse.from(user, defaultProjectId);
     }
 
     private TokenBundle issueTokens(UserAccount user) {

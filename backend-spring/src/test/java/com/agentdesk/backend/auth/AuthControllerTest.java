@@ -52,6 +52,8 @@ class AuthControllerTest {
         assertThat(response.path("data").path("access_token").asText()).isNotBlank();
         assertThat(response.path("data").path("refresh_token").asText()).isNotBlank();
         assertThat(response.path("data").path("token_type").asText()).isEqualTo("Bearer");
+        assertThat(response.path("data").path("default_project_id").asText()).isNotBlank();
+        assertThat(response.path("data").path("user").path("default_project_id").asText()).isNotBlank();
         assertThat(response.path("data").path("expires_in").asLong()).isGreaterThan(0);
         assertThat(response.path("data").path("user").path("email").asText()).contains("@example.com");
 
@@ -80,7 +82,8 @@ class AuthControllerTest {
         mockMvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value(email))
-                .andExpect(jsonPath("$.data.name").value("Login User"));
+                .andExpect(jsonPath("$.data.name").value("Login User"))
+                .andExpect(jsonPath("$.data.default_project_id", not(blankOrNullString())));
     }
 
     @Test

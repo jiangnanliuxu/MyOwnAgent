@@ -132,6 +132,36 @@ public class JdbcAuthRepository implements AuthRepository {
     }
 
     @Override
+    public Optional<UUID> findDefaultProjectId(UUID userId) {
+        return jdbcClient.sql("""
+                        SELECT id
+                        FROM projects
+                        WHERE user_id = :user_id AND status = 'active'
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                        """)
+                .param("user_id", userId)
+                .query(UUID.class)
+                .optional();
+    }
+
+    @Override
+    public boolean projectBelongsToUser(UUID userId, UUID projectId) {
+        Integer count = jdbcClient.sql("""
+                        SELECT COUNT(*)
+                        FROM projects
+                        WHERE id = :project_id
+                          AND user_id = :user_id
+                          AND status = 'active'
+                        """)
+                .param("project_id", projectId)
+                .param("user_id", userId)
+                .query(Integer.class)
+                .single();
+        return count > 0;
+    }
+
+    @Override
     public void saveRefreshToken(UUID userId, String tokenHash, Instant expiresAt) {
         jdbcClient.sql("""
                         INSERT INTO refresh_tokens (user_id, token_hash, expires_at)

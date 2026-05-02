@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B03 | Done | 无 | 进入 B04 Bootstrap 只读接口规划 |
+| B05 | In Progress | 无 | Development Agent 实现 Folder/Thread/Message CRUD |
 
 ## 阶段拆分
 
@@ -36,8 +36,8 @@
 | B01 | Spring Boot 骨架 | `backend-spring` 项目、Gradle、基础配置、健康检查、统一响应、异常处理、会话当前 Agent 状态显示 | [x] | [x] | [x] | 无 | 先不接业务表 |
 | B02 | 基础设施与数据库 | Docker Compose、PostgreSQL、Redis、MinIO、Flyway V1 schema | [x] | [x] | [x] | 无 | Milvus 只提供独立启动说明 |
 | B03 | 认证与用户偏好 | Auth、JWT、`/auth/me`、`/me/preferences`、active thread 规则 | [x] | [x] | [x] | 无 | 保持 query/localStorage/default 兼容 |
-| B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [ ] | [ ] | [ ] | 待开始 | 前端可先只读接入 |
-| B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [ ] | [ ] | [ ] | 待开始 | 暂不启用真实 Agent |
+| B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [x] | [x] | [x] | 无 | 前端可先只读接入 |
+| B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [x] | [ ] | [ ] | In Progress | 暂不启用真实 Agent |
 | B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [ ] | [ ] | [ ] | 待开始 | 机器人设置页核心 |
 | B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [ ] | [ ] | [ ] | 待开始 | Skill 不是 MCP |
 | B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [ ] | [ ] | [ ] | 待开始 | Python 不能绕过 Spring 调工具 |
@@ -61,6 +61,71 @@
   - [ ] 阶段范围已确认
   - [ ] 验收标准已确认
   - [ ] 依赖和风险已记录
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B04 无新增 Flyway 迁移，bootstrap 首次读取时按项目幂等写入 PostgreSQL seed。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/bootstrap/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/AuthRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/AuthResponse.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/AuthService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/InMemoryAuthRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/JdbcAuthRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/UserResponse.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/common/error/ErrorCode.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/bootstrap/BootstrapControllerTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/auth/AuthControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.bootstrap.BootstrapControllerTest`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.bootstrap.BootstrapControllerTest`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.bootstrap.BootstrapControllerTest --rerun-tasks`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `POST /api/v1/auth/register`
+    - `GET /api/v1/projects/:id/bootstrap`
+    - `GET /api/v1/projects/:id/bootstrap?thread=route-test`
+    - `GET /api/v1/me/preferences`
+    - `GET /api/v1/projects/:id/bootstrap` without token
+    - `GET /api/v1/projects/:otherProjectId/bootstrap` with another user's token
+    - `docker compose -f docker/docker-compose.yml exec -T postgres psql -U agentdesk -d agentdesk -Atc "select version, success from flyway_schema_history order by installed_rank;"`
+  - 测试结果：
+    - B04 定向 `BootstrapControllerTest`：通过
+    - 默认 profile `./gradlew clean test`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - HTTP 冒烟：注册返回 `default_project_id`，bootstrap 返回 folders/threads/roles/skills/mcp/health_items
+    - `?thread=route-test` 优先并持久化到 `/me/preferences`
+    - 无 token 返回 `UNAUTHORIZED`，跨用户 project 返回 `FORBIDDEN`
+    - 响应不包含 `password_hash`、`refresh_token`、`api_key`
+    - dev profile Flyway：`V1` 和 `V2` success=`t`
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - `SecurityConfig` 补充保护 `GET /api/v1/projects/*/bootstrap`。
+    - 注册/登录/`/auth/me` 响应补充 `default_project_id`，让前端后续能调用 project-scoped bootstrap。
+    - dev profile seed 增加 `seed_sort` metadata，修复 PostgreSQL 返回 thread 顺序与前端 mock 不一致的问题。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B05 - Folder/Thread/Message CRUD
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现项目目录列表/新增、目录下会话列表/新增、会话详情/更新、消息历史分页和消息发送入库的前半段。
+  - [x] 验收标准已确认：所有写接口需要认证、项目归属校验和幂等保护；消息发送只写 user message 和 pending agent 占位，不启动真实 Agent/SSE。
+  - [x] 依赖和风险已记录：依赖 B04 seed 数据和 `default_project_id`；B05 不实现真实 Agent 编排、Redis job、SSE 流式输出或 RAG 上传。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
@@ -108,6 +173,32 @@
   - [x] Dev Done
   - [x] Test Done
   - [x] Planning Agent 已批准进入下一阶段
+
+### B04 - Bootstrap 只读接口
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现 `GET /api/v1/projects/:id/bootstrap`，返回 folders、threads、recent messages、roles、skills、mcp endpoints、user preferences 和当前 active thread。
+  - [x] 验收标准已确认：默认 profile 可用内存 seed；dev profile 可把 mock 等价 seed 写入 PostgreSQL；接口只读、需要认证、只能访问当前用户项目。
+  - [x] 依赖和风险已记录：B04 不实现 folder/thread/message 写接口；mock seed 需覆盖 `thread/role/skill/mcp` store 的基础字段，并保留 `session-review` 默认线程。
+- Development Agent:
+  - [ ] 代码实现完成
+  - [ ] 数据库迁移/配置更新完成
+  - [ ] 自测命令已运行
+  - 变更文件：
+  - 自测命令：
+- Testing Agent:
+  - [ ] 单元测试通过
+  - [ ] 集成测试通过
+  - [ ] 回归测试通过
+  - 测试命令：
+  - 测试结果：
+- Bugs:
+  - [ ] 无阻塞 bug
+  - 修复记录：
+- Gate:
+  - [ ] Dev Done
+  - [ ] Test Done
+  - [ ] Planning Agent 已批准进入下一阶段
 
 ### B01 - Spring Boot 骨架
 
