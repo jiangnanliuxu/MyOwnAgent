@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B10 | In Progress | 无 | Planning Agent 开始 Python Agent 基础服务阶段 |
+| B11 | In Progress | 无 | Planning Agent 开始 RAG 上传索引阶段 |
 
 ## 阶段拆分
 
@@ -42,8 +42,8 @@
 | B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [x] | [x] | 无 | Skill 不是 MCP |
 | B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [x] | [x] | 无 | Python 不能绕过 Spring 调工具 |
 | B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [x] | [x] | 无 | 先接单 Agent mock worker |
-| B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [ ] | [ ] | In Progress | 不直接写核心业务表 |
-| B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [ ] | [ ] | [ ] | 待开始 | 输入框下方文件按钮是入口 |
+| B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [x] | [x] | 无 | 不直接写核心业务表 |
+| B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [ ] | [ ] | In Progress | 输入框下方文件按钮是入口 |
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [ ] | [ ] | [ ] | 待开始 | 默认 scope=thread |
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [ ] | [ ] | [ ] | 待开始 | 依赖 B09/B10 |
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [ ] | [ ] | [ ] | 待开始 | 对应 `/settings` |
@@ -676,6 +676,68 @@
   - [x] 阶段范围已确认：创建 `agent-python` FastAPI 服务骨架、内部健康接口、Redis worker skeleton、LangGraph 依赖占位和 Spring 调用契约。
   - [x] 验收标准已确认：Python 不直接写核心业务表；只提供 internal API、worker skeleton 和本地测试，真实编排后续阶段扩展。
   - [x] 依赖和风险已记录：依赖 B09 的消息/job/SSE 事件模型；B10 不替换 Spring mock worker。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B10 无数据库迁移；新增 Python 服务、Compose 服务和 Docker 构建忽略规则。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `.gitignore`
+    - `docker/docker-compose.yml`
+    - `agent-python/.dockerignore`
+    - `agent-python/Dockerfile`
+    - `agent-python/README.md`
+    - `agent-python/pyproject.toml`
+    - `agent-python/app/config.py`
+    - `agent-python/app/gateway/spring_tools.py`
+    - `agent-python/app/graph/orchestrator.py`
+    - `agent-python/app/graph/router.py`
+    - `agent-python/app/graph/state.py`
+    - `agent-python/app/job_store.py`
+    - `agent-python/app/main.py`
+    - `agent-python/app/models.py`
+    - `agent-python/app/security.py`
+    - `agent-python/app/skills/runner.py`
+    - `agent-python/app/worker.py`
+    - `agent-python/tests/test_internal_api.py`
+  - 自测命令：
+    - `cd agent-python && python3 -m venv .venv`
+    - `cd agent-python && .venv/bin/python -m pip install --upgrade pip`
+    - `cd agent-python && .venv/bin/python -m pip install -e '.[dev]'`
+    - `cd agent-python && .venv/bin/python -m pytest`
+    - `cd agent-python && .venv/bin/python -m compileall app tests`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `docker compose -f docker/docker-compose.yml config`
+    - `cd agent-python && .venv/bin/python -m pytest`
+    - `cd agent-python && .venv/bin/python -m compileall app tests`
+    - `DOCKER_CONFIG=/tmp/agentdesk-docker-config /Users/yangzhecheng/.docker/cli-plugins/docker-compose -f docker/docker-compose.yml up -d --build agent-python`
+    - `curl -sf -H 'X-Internal-Token: local-dev-internal-token' http://localhost:8001/internal/health/workers`
+    - `curl -sf -H 'X-Internal-Token: local-dev-internal-token' -H 'Content-Type: application/json' -d '{"job_id":"job-b10-docker","thread_id":"thread-docker","project_id":"project-1","user_id":"user-1","content":"容器验收","rag":{"enabled":false}}' http://localhost:8001/internal/agent/jobs`
+  - 测试结果：
+    - Python 本地测试：5 passed
+    - Python `compileall`：通过
+    - Docker Compose 配置：通过，新增 `agent-python` 服务依赖 Redis 健康检查。
+    - Docker 容器验收：`agent-python` 构建成功，`/internal/health/workers` 返回 `service=agent-python`、`redis_stream=agent.jobs`，`/internal/agent/jobs` 返回 `status=queued` 和 `agent.events:thread-docker`。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - Docker Desktop 默认凭据读取进程曾卡住镜像构建；改用空 `DOCKER_CONFIG=/tmp/agentdesk-docker-config` 调用 compose plugin 后构建和容器验收通过。
+    - 首次容器健康检查曾在 Uvicorn 完全就绪前触发，等待服务启动后复测通过。
+    - 新增 `.dockerignore`，将构建上下文从包含本地虚拟环境的 13MB 降到约 4KB。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B11 - RAG 上传索引
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现前端文件上传入口对应的后端 RAG 上传索引基础能力，包括 Spring 上传 API、MinIO 原文存储、`rag_documents` / `rag_index_jobs` 状态流转、Redis `rag.index.jobs` 事件和 Python 索引 worker skeleton。
+  - [x] 验收标准已确认：浏览器仍只访问 Spring `/api/v1/threads/:id/rag/uploads`；Python 不直接写核心业务表；B11 只完成上传入队和索引任务骨架，不要求真实 embedding/Milvus 写入。
+  - [x] 依赖和风险已记录：依赖 B02 MinIO/Redis、B03 认证、B05 thread 权限和 B10 Python 服务；Milvus/Embedding Gateway 的真实写入在 B12 前后继续完善。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

@@ -19,3 +19,11 @@ backend-spring/.gradle/
 backend-spring/build/
 backend-spring/out/
 backend-spring/*.iml
+
+agent-python/.venv/
+agent-python/.pytest_cache/
+agent-python/.ruff_cache/
+agent-python/__pycache__/
+agent-python/app/**/__pycache__/
+agent-python/tests/**/__pycache__/
+agent-python/*.egg-info/
