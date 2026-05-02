@@ -395,7 +395,7 @@ public class JdbcBootstrapRepository implements BootstrapRepository {
     private Map<String, List<BootstrapResponse.MessageView>> recentMessages(UUID projectId) {
         Map<String, List<BootstrapResponse.MessageView>> result = new LinkedHashMap<>();
         jdbcClient.sql("""
-                        SELECT t.client_key, m.id, m.role, m.agent_name, m.content, m.kind, m.status, m.created_at
+                        SELECT t.client_key, m.id, m.client_message_id, m.role, m.agent_name, m.content, m.kind, m.status, m.created_at
                         FROM messages m
                         JOIN threads t ON t.id = m.thread_id
                         WHERE m.project_id = :project_id
@@ -406,6 +406,7 @@ public class JdbcBootstrapRepository implements BootstrapRepository {
                     String threadKey = rs.getString("client_key");
                     result.computeIfAbsent(threadKey, ignored -> new ArrayList<>()).add(new BootstrapResponse.MessageView(
                             rs.getObject("id", UUID.class),
+                            rs.getString("client_message_id"),
                             rs.getString("role"),
                             rs.getString("agent_name"),
                             rs.getString("content"),

@@ -112,6 +112,7 @@ public class InMemoryBootstrapRepository implements BootstrapRepository {
             result.put(thread.clientKey(), BootstrapSeedData.messages(thread).stream()
                     .map(message -> new BootstrapResponse.MessageView(
                             stableId(projectId, "message:" + thread.clientKey() + ":" + message.sortOrder()),
+                            "seed-" + message.sortOrder(),
                             message.role(),
                             "agent".equals(message.role()) ? message.title() : null,
                             message.content(),

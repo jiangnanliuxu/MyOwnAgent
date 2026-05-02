@@ -68,6 +68,7 @@ public record BootstrapResponse(
 
     public record MessageView(
             UUID id,
+            String clientMessageId,
             String role,
             String agentName,
             String content,

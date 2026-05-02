@@ -7,12 +7,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 
-final class BootstrapSeedData {
+public final class BootstrapSeedData {
 
     private BootstrapSeedData() {
     }
 
-    static List<SeedRole> roles(ObjectMapper objectMapper) {
+    public static List<SeedRole> roles(ObjectMapper objectMapper) {
         return List.of(
                 role(objectMapper, "primary", "主助手", "Primary Agent", "orchestrator",
                         "负责拆解任务、调度子 agent、把最后结果整理给用户。",
@@ -59,7 +59,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static List<SeedThread> threads() {
+    public static List<SeedThread> threads() {
         return List.of(
                 new SeedThread("session-review", "review-agent", "src/auth/useSession.ts", "src/auth",
                         "正在梳理 session 状态变更点", List.of("primary", "review", "auth"), "review", "已编排"),
@@ -78,7 +78,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static List<SeedMessage> messages(SeedThread thread) {
+    public static List<SeedMessage> messages(SeedThread thread) {
         if ("session-review".equals(thread.clientKey())) {
             return List.of(
                     new SeedMessage("user", "你", "我想尽快知道这次重构会影响哪些页面和测试。", 0),
@@ -97,7 +97,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static List<SeedSkill> skills(ObjectMapper objectMapper) {
+    public static List<SeedSkill> skills(ObjectMapper objectMapper) {
         return List.of(
                 new SeedSkill("frontend-design", "frontend-design", "local skill", "启用",
                         "页面设计、交互细节、前端视觉 polish", List.of("系统层", "任务层"), "04:02 / 当前原型",
@@ -111,7 +111,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static List<SeedMcpEndpoint> mcpEndpoints() {
+    public static List<SeedMcpEndpoint> mcpEndpoints() {
         return List.of(
                 new SeedMcpEndpoint("figma", "Figma MCP", "plugin api", "已连接", "OAuth",
                         "mcp://codex-apps/figma", List.of("design_context", "use_figma", "generate_diagram"), 128),
@@ -122,7 +122,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static List<BootstrapResponse.HealthItemView> healthItems() {
+    public static List<BootstrapResponse.HealthItemView> healthItems() {
         return List.of(
                 new BootstrapResponse.HealthItemView("Skill 装载", "正常", "3 个 skill 已进入候选池，按页面场景自动启用。"),
                 new BootstrapResponse.HealthItemView("MCP 连接", "正常", "当前接口可被页面配置引用，失败时会回到本地摘要。"),
@@ -131,7 +131,7 @@ final class BootstrapSeedData {
         );
     }
 
-    static String sessionRoleKey(String threadKey) {
+    public static String sessionRoleKey(String threadKey) {
         return "thread-role-" + threadKey;
     }
 
@@ -182,7 +182,7 @@ final class BootstrapSeedData {
         return arrayNode;
     }
 
-    record SeedRole(
+    public record SeedRole(
             String clientKey,
             String name,
             String alias,
@@ -194,7 +194,7 @@ final class BootstrapSeedData {
     ) {
     }
 
-    record SeedThread(
+    public record SeedThread(
             String clientKey,
             String label,
             String file,
@@ -206,7 +206,7 @@ final class BootstrapSeedData {
     ) {
     }
 
-    record SeedMessage(
+    public record SeedMessage(
             String role,
             String title,
             String content,
@@ -214,7 +214,7 @@ final class BootstrapSeedData {
     ) {
     }
 
-    record SeedSkill(
+    public record SeedSkill(
             String clientKey,
             String name,
             String source,
@@ -227,7 +227,7 @@ final class BootstrapSeedData {
     ) {
     }
 
-    record SeedMcpEndpoint(
+    public record SeedMcpEndpoint(
             String clientKey,
             String name,
             String transport,
