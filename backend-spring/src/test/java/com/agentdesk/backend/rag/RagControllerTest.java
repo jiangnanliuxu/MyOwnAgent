@@ -16,11 +16,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -81,6 +85,47 @@ class RagControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].source_name").value("login-notes.md"))
                 .andExpect(jsonPath("$.data.items[0].status").value("uploaded"));
+    }
+
+    @Test
+    void ragRetrievalEventIsEmittedWhenSendingMessageAfterUpload() throws Exception {
+        AuthSession session = register("b12-" + UUID.randomUUID() + "@example.com");
+        UUID threadId = firstThreadId(session);
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "checkout-flow.md",
+                "text/markdown",
+                "结账流程与登录态说明".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/v1/threads/{threadId}/rag/uploads", threadId)
+                        .file(file)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isAccepted());
+
+        mockMvc.perform(post("/api/v1/threads/{threadId}/messages", threadId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .header("X-Idempotency-Key", "b12-rag-message")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "client_message_id": "b12-rag-message",
+                                  "content": "请基于上传资料说明结账流程",
+                                  "rag": {"enabled": true, "top_k": 3, "scope": "thread"}
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("processing"));
+
+        MvcResult stream = mockMvc.perform(get("/api/v1/threads/{threadId}/stream?last_event_id=0&replay_only=true", threadId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        mockMvc.perform(asyncDispatch(stream))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("rag_retrieval")))
+                .andExpect(content().string(containsString("checkout-flow.md")))
+                .andExpect(content().string(containsString("RAG")));
     }
 
     @Test

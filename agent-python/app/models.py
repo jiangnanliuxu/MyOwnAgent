@@ -72,3 +72,11 @@ class RagIndexJob(BaseModel):
     sha256: str
     scope: str = "thread"
     milvus_collection: str = "agent_desk_chunks"
+
+
+class RagRetrievalQuery(BaseModel):
+    project_id: str
+    thread_id: str
+    query: str
+    top_k: int = Field(default=4, ge=1, le=10)
+    scope: str = "thread"

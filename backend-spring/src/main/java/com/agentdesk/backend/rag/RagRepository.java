@@ -3,7 +3,7 @@ package com.agentdesk.backend.rag;
 import java.util.List;
 import java.util.UUID;
 
-interface RagRepository {
+public interface RagRepository {
 
     RagUploadRecord createUpload(RagDtos.CreateDocumentCommand command);
 

@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B12 | In Progress | 无 | Planning Agent 开始 RAG 检索回答阶段 |
+| B13 | In Progress | 无 | Planning Agent 开始多 Agent 编排阶段 |
 
 ## 阶段拆分
 
@@ -44,8 +44,8 @@
 | B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [x] | [x] | 无 | 先接单 Agent mock worker |
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [x] | [x] | 无 | 不直接写核心业务表 |
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [x] | [x] | 无 | 输入框下方文件按钮是入口 |
-| B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [ ] | [ ] | In Progress | 默认 scope=thread |
-| B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [ ] | [ ] | [ ] | 待开始 | 依赖 B09/B10 |
+| B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [x] | [x] | 无 | 默认 scope=thread |
+| B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [ ] | [ ] | In Progress | 依赖 B09/B10 |
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [ ] | [ ] | [ ] | 待开始 | 对应 `/settings` |
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [ ] | [ ] | [ ] | 待开始 | 分页面逐步切换 |
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [ ] | [ ] | [ ] | 待开始 | 生产前收口 |
@@ -802,6 +802,54 @@
   - [x] 阶段范围已确认：实现消息发送时的 RAG 检索链路骨架，包括 query embedding 占位、按 `project_id/thread_id` 范围检索、召回片段注入 agent prompt、SSE `rag_retrieval` 事件和回答上下文记录。
   - [x] 验收标准已确认：默认 `scope=thread`，不得跨项目召回；未索引或无召回时消息流程保持可用；真实 Milvus/Embedding 可先用接口边界和可替换 adapter 占位。
   - [x] 依赖和风险已记录：依赖 B09 SSE、B10 Python Agent skeleton 和 B11 上传索引；真实向量库落地时需补 Milvus collection 初始化和 embedding key 的 `secret_ref` 管理。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B12 无新增迁移，复用 `rag_documents` 与 SSE event buffer；真实 `rag_chunks`/Milvus 检索后续接 adapter。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/rag/RagRetrievalService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/rag/RagRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentJobService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceService.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/rag/RagControllerTest.java`
+    - `agent-python/app/models.py`
+    - `agent-python/app/rag/retriever.py`
+    - `agent-python/tests/test_internal_api.py`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest`
+    - `cd agent-python && .venv/bin/python -m pytest`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest`
+    - `cd agent-python && .venv/bin/python -m compileall app tests`
+  - 测试结果：
+    - Spring B12 RAG 定向测试：通过，上传后发送消息会在 SSE replay 中出现 `rag_retrieval`、文档来源和 RAG 回答注入内容。
+    - Spring dev profile 组合回归：RAG + Workspace 通过。
+    - Spring 默认 profile `./gradlew clean test`：通过。
+    - Spring `./gradlew bootJar`：通过。
+    - Python Agent 测试：7 passed，含 thread scope retrieval filter 计划。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - MockMvc SSE 内容对中文会出现编码转义展示，测试断言改用稳定 ASCII 标记 `RAG` 和文件名。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B13 - 多 Agent 编排
+
+- Planning Agent:
+  - [x] 阶段范围已确认：在现有 Role、Skill、MCP、RAG 和 SSE 基础上增加多 Agent 编排骨架，包括角色路由、handoff 事件、Skill Runner 调用契约和上下文压缩入口占位。
+  - [x] 验收标准已确认：消息流不能破坏 B09/B12；handoff 必须产生可回放 SSE 事件；Python 继续不直接写核心业务表；工具调用仍经过 Spring Tool Gateway。
+  - [x] 依赖和风险已记录：依赖 B06 角色配置、B07 Skill、B08 MCP Gateway、B09 SSE、B10 Python Agent 和 B12 RAG 检索；真实多模型调用后续需要密钥 `secret_ref` 和运行日志收口。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

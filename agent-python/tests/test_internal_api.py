@@ -2,8 +2,9 @@ from fastapi.testclient import TestClient
 
 from app.graph.orchestrator import run_skeleton_graph
 from app.main import app
-from app.models import RagIndexJob
+from app.models import RagIndexJob, RagRetrievalQuery
 from app.rag.indexer import plan_index_job
+from app.rag.retriever import plan_retrieval
 
 
 client = TestClient(app)
@@ -89,3 +90,18 @@ def test_rag_index_job_contract_is_plannable() -> None:
     )
     assert plan["status"] == "accepted"
     assert plan["next_step"] == "parse_chunk_embed_upsert"
+
+
+def test_rag_retrieval_plan_keeps_thread_scope_filter() -> None:
+    plan = plan_retrieval(
+        RagRetrievalQuery(
+            project_id="project-1",
+            thread_id="thread-1",
+            query="登录流程",
+            top_k=4,
+            scope="thread",
+        )
+    )
+    assert plan["status"] == "planned"
+    assert "project_id == 'project-1'" in plan["filter"]
+    assert "thread_id == 'thread-1'" in plan["filter"]
