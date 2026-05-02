@@ -121,14 +121,8 @@ public class InMemoryWorkspaceRepository implements WorkspaceRepository {
                 : request.roleKeys();
         String focusRole = StringUtils.hasText(request.focusRoleKey()) ? request.focusRoleKey().trim() : "primary";
         ThreadState thread = createThreadState(state, folder, label, summary, roleKeys, focusRole, "未编排");
-        List<MessageState> messages = List.of(
-                createMessage(state, thread.id(), "seed-thread-welcome", "agent", "主助手",
-                        "已为 " + folder.name() + " 目录新建独立会话。这里会有自己的上下文、消息和后续 agent 接力记录。", "completed"),
-                createMessage(state, thread.id(), "seed-thread-review", "agent", "review-agent",
-                        "你可以把这个会话当作一条新的分析线，不会覆盖同目录下其他会话。", "completed")
-        );
-        state.messagesByThread.put(thread.id(), new ArrayList<>(messages));
-        return new WorkspaceDtos.CreateThreadResponse(threadView(state, thread), messages.stream().map(this::messageView).toList());
+        state.messagesByThread.put(thread.id(), new ArrayList<>());
+        return new WorkspaceDtos.CreateThreadResponse(threadView(state, thread), List.of());
     }
 
     @Override
@@ -189,13 +183,13 @@ public class InMemoryWorkspaceRepository implements WorkspaceRepository {
         if (existing.isPresent()) {
             MessageState placeholder = findPlaceholder(messages, clientMessageId)
                     .orElseGet(() -> createMessage(state, threadId, clientMessageId + ":agent", "agent", "主助手",
-                            "Agent 编排任务已排队，等待 B09 SSE 接入后输出。", "pending"));
+                            "", "pending"));
             return sendResponse(threadId, existing.get(), placeholder);
         }
 
         MessageState userMessage = createMessage(state, threadId, clientMessageId, "user", null, request.content().trim(), "completed");
         MessageState placeholder = createMessage(state, threadId, clientMessageId + ":agent", "agent", "主助手",
-                "Agent 编排任务已排队，等待 B09 SSE 接入后输出。", "pending");
+                "", "pending");
         messages.add(userMessage);
         messages.add(placeholder);
         return sendResponse(threadId, userMessage, placeholder);

@@ -8,7 +8,7 @@ export function createThreadEventSource(threadId, lastEventId = 0) {
   return new EventSource(url.toString());
 }
 
-export async function fetchThreadEvents(threadId, lastEventId = 0, { replayOnly = true } = {}) {
+export async function fetchThreadEvents(threadId, lastEventId = 0, { replayOnly = true, signal } = {}) {
   const session = apiSession();
   if (!session.baseUrl) return [];
   const url = new URL(`/api/v1/threads/${threadId}/stream`, session.baseUrl);
@@ -18,7 +18,7 @@ export async function fetchThreadEvents(threadId, lastEventId = 0, { replayOnly 
   if (session.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
-  const response = await fetch(url.toString(), { headers });
+  const response = await fetch(url.toString(), { headers, signal });
   if (!response.ok) {
     throw new Error(`SSE replay failed: ${response.status}`);
   }

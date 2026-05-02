@@ -48,13 +48,14 @@ class OpenAiCompatibleLlmGatewayTest {
             OpenAiCompatibleLlmGateway gateway = new OpenAiCompatibleLlmGateway(objectMapper);
 
             LlmGateway.ChatTurn turn = gateway.chat(
-                    new LlmGateway.ChatConfig(endpoint, "test-key", "Pro/zai-org/GLM-4.7", "OpenAI Chat Completions", 0.2),
+                    new LlmGateway.ChatConfig(endpoint, "test-key", "Pro/zai-org/GLM-4.7", "OpenAI Chat Completions", 0.2, 64),
                     List.of(Map.of("role", "user", "content", "搜索 AgentJobService")),
                     List.of(Map.of("type", "function", "function", Map.of("name", "project_search")))
             );
 
             JsonNode sent = objectMapper.readTree(requestBody.get());
             assertThat(sent.path("model").asText()).isEqualTo("Pro/zai-org/GLM-4.7");
+            assertThat(sent.path("max_tokens").asInt()).isEqualTo(64);
             assertThat(sent.path("messages").get(0).path("content").asText()).contains("AgentJobService");
             assertThat(sent.path("tools").get(0).path("function").path("name").asText()).isEqualTo("project_search");
             assertThat(turn.toolCalls()).hasSize(1);

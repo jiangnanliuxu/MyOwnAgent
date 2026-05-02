@@ -41,6 +41,9 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
         body.put("model", config.model());
         body.put("messages", messages);
         body.put("temperature", config.temperature());
+        if (config.maxTokens() != null && config.maxTokens() > 0) {
+            body.put("max_tokens", config.maxTokens());
+        }
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools);
             body.put("tool_choice", "auto");

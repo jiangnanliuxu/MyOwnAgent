@@ -143,7 +143,7 @@ public class AgentLlmService {
         if (!chatCompletions) {
             return Optional.empty();
         }
-        return Optional.of(new LlmGateway.ChatConfig(endpoint, apiKey, model, apiFormat, temperature(config)));
+        return Optional.of(new LlmGateway.ChatConfig(endpoint, apiKey, model, apiFormat, temperature(config), maxTokens(config)));
     }
 
     private String systemPrompt(
@@ -200,7 +200,7 @@ public class AgentLlmService {
     }
 
     private String fallbackContent(RagRetrievalService.RetrievalResult retrieval, String reason) {
-        String base = "Mock Agent 已接收你的消息。" + reason + " 请在机器人设置页把 API 格式设为 OpenAI Chat Completions，并重新保存 API Key。";
+        String base = reason + " 请在机器人设置页把 API 格式设为 OpenAI Chat Completions，并重新保存 API Key。";
         if (!retrieval.enabled() || retrieval.count() == 0) {
             return base;
         }
@@ -231,6 +231,23 @@ public class AgentLlmService {
             return 0.2;
         }
         return 0.2;
+    }
+
+    private Integer maxTokens(JsonNode config) {
+        String configJson = text(config, "config_json");
+        if (!StringUtils.hasText(configJson)) {
+            return null;
+        }
+        try {
+            JsonNode parsed = objectMapper.readTree(configJson);
+            if (parsed.has("max_tokens")) {
+                int value = parsed.path("max_tokens").asInt(0);
+                return value > 0 ? Math.min(value, 8192) : null;
+            }
+        } catch (IOException ignored) {
+            return null;
+        }
+        return null;
     }
 
     public record Answer(String content) {

@@ -141,18 +141,18 @@ async function sendMessage() {
   }
 
   const context = activeContext.value;
-  const roleNames = context.roles.map((roleId) => roleStore.getRole(roleId).name).join('、');
   threadStore.appendConversationBubble(context.id, { kind: 'user', title: '你', text });
-  threadStore.appendConversationBubble(context.id, {
-    kind: 'agent',
-    title: '主助手',
-    text: `已把这条请求绑定到 ${context.folder} / ${context.label}。下一步会优先让 ${roleNames} 接力处理。`
-  });
-  threadStore.sendMessageToBackend(context.id, text).catch(() => {
-    contextChip.value = '后端消息发送失败，已保留本地会话';
+  contextChip.value = '等待后端 LLM 响应';
+  threadStore.sendMessageToBackend(context.id, text, { timeoutMs: 120000 }).catch((error) => {
+    contextChip.value = '后端 LLM 响应失败';
+    threadStore.appendConversationBubble(context.id, {
+      kind: 'agent',
+      title: '系统提示',
+      text: error.message || '超过 2 分钟未收到后端 LLM 响应，请稍后重试。'
+    });
   });
   node.textContent = '';
-  showToast('已加入当前会话');
+  showToast('已发送到后端');
   scrollConversationToBottom();
 }
 

@@ -87,6 +87,7 @@ class WorkspaceControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.thread.label").value("会话 2"))
                 .andExpect(jsonPath("$.data.thread.role_status").value("未编排"))
+                .andExpect(jsonPath("$.data.initial_messages").isEmpty())
                 .andReturn());
         UUID threadId = UUID.fromString(createdThread.path("data").path("thread").path("id").asText());
 
@@ -109,8 +110,8 @@ class WorkspaceControllerTest {
         mockMvc.perform(get("/api/v1/threads/{threadId}/messages?limit=1", threadId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].role").value("agent"))
-                .andExpect(jsonPath("$.data.next_cursor", not(blankOrNullString())));
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.next_cursor").doesNotExist());
 
         JsonNode sent = sendMessage(session, threadId, "msg-b05-1", "帮我列一下这三个文件各自可能受影响的逻辑点");
         UUID messageId = UUID.fromString(sent.path("data").path("message").path("id").asText());
@@ -122,10 +123,10 @@ class WorkspaceControllerTest {
         mockMvc.perform(get("/api/v1/threads/{threadId}/messages?limit=20", threadId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[2].client_message_id").value("msg-b05-1"))
-                .andExpect(jsonPath("$.data.items[2].role").value("user"))
-                .andExpect(jsonPath("$.data.items[3].client_message_id").value("msg-b05-1:agent"))
-                .andExpect(jsonPath("$.data.items[3].status").value("completed"));
+                .andExpect(jsonPath("$.data.items[0].client_message_id").value("msg-b05-1"))
+                .andExpect(jsonPath("$.data.items[0].role").value("user"))
+                .andExpect(jsonPath("$.data.items[1].client_message_id").value("msg-b05-1:agent"))
+                .andExpect(jsonPath("$.data.items[1].status").value("completed"));
 
         MvcResult stream = mockMvc.perform(get("/api/v1/threads/{threadId}/stream?last_event_id=0&replay_only=true", threadId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
@@ -134,7 +135,7 @@ class WorkspaceControllerTest {
         mockMvc.perform(asyncDispatch(stream))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("message_completed")))
-                .andExpect(content().string(containsString("Mock Agent")));
+                .andExpect(content().string(containsString("OpenAI Chat Completions")));
 
         mockMvc.perform(get("/api/v1/folders/{folderId}/threads", srcAuthFolderId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))

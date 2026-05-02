@@ -43,6 +43,19 @@ public final class RoleDtos {
     ) {
     }
 
+    public record TestConnectionRequest(JsonNode config) {
+    }
+
+    public record TestConnectionResponse(
+            boolean success,
+            String status,
+            String message,
+            String provider,
+            String model,
+            Integer latencyMs
+    ) {
+    }
+
     public record RoleItem(
             UUID id,
             String clientKey,

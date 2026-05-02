@@ -10,6 +10,7 @@ import { fetchThreadEvents } from '../services/sseClient';
 
 const DEFAULT_THREAD_ID = 'session-review';
 const THREAD_STATE_STORAGE_KEY = 'agentDesk.threadState.v1';
+const DEFAULT_LLM_TIMEOUT_MS = 120000;
 
 const DEFAULT_CONVERSATION = [
   { kind: 'user', title: '你', text: '我想尽快知道这次重构会影响哪些页面和测试。' },
@@ -235,7 +236,7 @@ export const useThreadStore = defineStore('thread', () => {
     if (!data?.threads) return false;
     Object.entries(data.threads).forEach(([threadKey, thread]) => {
       const context = applyBackendThread(thread, data.recent_messages?.[threadKey] || [], threadKey);
-      if (!conversations[context.id].length) conversations[context.id] = createConversationForContext(context);
+      if (!conversations[context.id].length && !context.backendId) conversations[context.id] = createConversationForContext(context);
     });
     const folders = (data.folders || []).map((folder) => folder.name || folder.path).filter(Boolean);
     if (folders.length) {
@@ -289,24 +290,36 @@ export const useThreadStore = defineStore('thread', () => {
     const context = getContext(threadId);
     if (!isBackendConfigured() || !context.backendId) return null;
     const clientMessageId = options.clientMessageId || `web-${Date.now().toString(36)}`;
-    const response = await sendThreadMessage(
-      context.backendId,
-      {
-        client_message_id: clientMessageId,
-        content,
-        context: options.context || {},
-        rag: options.rag || { enabled: true, scope: 'thread' }
-      },
-      clientMessageId
-    );
+    const timeoutMs = options.timeoutMs || DEFAULT_LLM_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(new Error('LLM 响应超时')), timeoutMs);
     try {
+      const response = await sendThreadMessage(
+        context.backendId,
+        {
+          client_message_id: clientMessageId,
+          content,
+          context: options.context || {},
+          rag: options.rag || { enabled: true, scope: 'thread' }
+        },
+        clientMessageId,
+        { signal: controller.signal }
+      );
       const placeholderId = response?.agent_placeholder?.id || response?.agentPlaceholder?.id;
-      const events = await fetchThreadEvents(context.backendId, 0, { replayOnly: true });
-      applyBackendAgentEvents(context.id, events, placeholderId);
+      const events = await fetchThreadEvents(context.backendId, 0, { replayOnly: true, signal: controller.signal });
+      const applied = applyBackendAgentEvents(context.id, events, placeholderId);
+      if (!applied) {
+        throw new Error('后端没有返回 LLM 响应内容。');
+      }
+      backendError.value = '';
+      return response;
     } catch (error) {
-      backendError.value = error.message || 'SSE 回放失败';
+      const timedOut = error.name === 'AbortError' || error.message === 'LLM 响应超时';
+      backendError.value = timedOut ? '超过 2 分钟未收到后端 LLM 响应。' : (error.message || 'SSE 回放失败');
+      throw new Error(backendError.value);
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return response;
   }
 
   async function uploadRagFile(threadId, file) {
@@ -366,19 +379,7 @@ export const useThreadStore = defineStore('thread', () => {
       focusRole: 'primary',
       roleStatus: '未编排'
     });
-    conversations[context.id] = [
-      {
-        kind: 'agent',
-        title: '主助手',
-        text: `已为 ${normalizedFolder} 目录新建独立会话。这里会有自己的上下文、消息和后续 agent 接力记录。`
-      },
-      {
-        kind: 'agent',
-        id: `suggestion-${context.id}`,
-        title: 'review-agent',
-        text: '你可以把这个会话当作一条新的分析线，不会覆盖同目录下其他会话。'
-      }
-    ];
+    conversations[context.id] = [];
     persistState();
     return setActiveThread(context.id, true);
   }
@@ -447,35 +448,27 @@ export const useThreadStore = defineStore('thread', () => {
   }
 
   function applyBackendAgentEvents(threadId, events, placeholderId) {
-    if (!placeholderId) return;
+    if (!placeholderId) return false;
+    let applied = false;
     events.forEach((event) => {
       const payload = event.payload?.data || event.payload;
       if (!payload) return;
-      if (event.type === 'message_delta' && payload.message_id === placeholderId) {
+      if (event.type === 'message_delta' && payload.message_id === placeholderId && payload.content) {
         updateLastAgentBubble(threadId, {
           title: payload.agent_name || '主助手',
           text: payload.content || ''
         });
+        applied = true;
       }
-      if (event.type === 'tool_call' && payload.message_id === placeholderId) {
-        updateLastAgentBubble(threadId, {
-          title: '主助手',
-          text: `正在调用开发工具：${payload.name}`
-        });
-      }
-      if (event.type === 'tool_result' && payload.message_id === placeholderId && payload.success === false) {
-        updateLastAgentBubble(threadId, {
-          title: '主助手',
-          text: `开发工具 ${payload.name} 调用失败，正在继续整理回答。`
-        });
-      }
-      if (event.type === 'message_completed' && payload.id === placeholderId) {
+      if (event.type === 'message_completed' && payload.id === placeholderId && payload.content) {
         updateLastAgentBubble(threadId, {
           title: payload.agent_name || '主助手',
           text: payload.content || ''
         });
+        applied = true;
       }
     });
+    return applied;
   }
 
   return {

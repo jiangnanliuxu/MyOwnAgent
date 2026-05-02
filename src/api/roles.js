@@ -16,6 +16,13 @@ export function patchProjectRole(roleId, payload) {
   });
 }
 
+export function testRoleConnection(roleId, payload) {
+  return apiRequest(`/api/v1/roles/${roleId}/test-connection`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 export function syncFolderRoles(folderId) {
   return apiRequest(`/api/v1/folders/${folderId}/sync-roles`, {
     method: 'POST'

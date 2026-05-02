@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B21 | In Progress | 无 | Planning Agent 开始工具审计展示与重试策略规划 |
+| B22 | In Progress | 无 | Planning Agent 开始工具审计展示与 Provider 重试策略规划 |
 
 ## 阶段拆分
 
@@ -52,8 +52,9 @@
 | B17 | Role/Skill/MCP 前端接入 | `roles`、`skills`、`mcp` API adapter，Pinia store 后端可选读写，能力页联调 | [x] | [x] | [x] | 无 | 保持 mock fallback |
 | B18 | 前端认证与后端模式入口 | 登录/注册入口、token/projectId 持久化、后端模式状态提示、登出 | [x] | [x] | [x] | 无 | 解决手动 localStorage 配置 |
 | B19 | 真实 LLM/SSE/工具调用链路修复 | Spring OpenAI-compatible Chat Completions、前端 SSE 回放、受控只读开发工具、模型密钥临时托管 | [x] | [x] | [x] | 无 | SiliconFlow 兼容请求结构已用本地 mock 验证 |
-| B20 | 真实 Provider 联调与工具治理扩展 | 有效 API Key 下的 SiliconFlow 真连接、当前会话模型配置落库、真实前端会话联调、Provider 协议差异记录 | [x] | [x] | [x] | 无 | 已完成；工具审计 UI/重试策略拆到 B21 |
-| B21 | 工具审计展示与重试策略 | 工具授权 UI、工具调用审计展示、Provider 失败重试策略、Anthropic Messages 兼容性评估 | [x] | [ ] | [ ] | In Progress | B20 完成后自动进入 |
+| B20 | 真实 Provider 联调与工具治理扩展 | 有效 API Key 下的 SiliconFlow 真连接、当前会话模型配置落库、真实前端会话联调、Provider 协议差异记录 | [x] | [x] | [x] | 无 | 已完成；工具审计 UI/重试策略拆到 B22 |
+| B21 | 模型连接测试与真实响应约束 | 机器人模型连接测试、新会话空白、前端只展示后端 LLM 内容、2 分钟超时报错 | [x] | [x] | [x] | 无 | 已完成 |
+| B22 | 工具审计展示与 Provider 重试策略 | 工具授权 UI、工具调用审计展示、Provider 失败重试策略、Anthropic Messages 兼容性评估 | [x] | [ ] | [ ] | In Progress | B21 完成后自动进入 |
 
 ## 阶段记录模板
 
@@ -66,32 +67,6 @@
   - [ ] 阶段范围已确认
   - [ ] 验收标准已确认
   - [ ] 依赖和风险已记录
-- Development Agent:
-  - [x] 代码实现完成
-  - [x] 数据库迁移/配置更新完成：无新增迁移；复用 `roles.config.secret_ref` 和现有 thread/message 表。
-  - [x] 自测命令已运行
-  - 变更文件：`backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentLlmService.java`、`backend-spring/src/main/java/com/agentdesk/backend/llm/OpenAiCompatibleLlmGateway.java`、`src/stores/thread.js`、`src/stores/role.js`、`src/views/MainWorkspace.vue`、`src/views/RobotSettings.vue`、`src/components/shared/ModalHost.vue`、`src/api/threads.js`。
-  - 自测命令：`npm run test:unit`、`npm run build`、`./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.llm.OpenAiCompatibleLlmGatewayTest --tests com.agentdesk.backend.tools.DeveloperToolServiceTest`、`./gradlew bootJar`。
-- Testing Agent:
-  - [x] 单元测试通过
-  - [x] 集成测试通过
-  - [x] 回归测试通过
-  - 测试命令：同 Development Agent 自测命令；另执行真实前端 Playwright 流程和 SiliconFlow 直连 curl。
-  - 测试结果：`Pro/zai-org/GLM-5.1` 在真实前端“新增会话 -> 当前机器人配置 -> 发送 hello”流程中成功返回；`Pro/zai-org/GLM-4.7` 在默认 HTTP/2 下会约 60 秒断开，后端已强制 OpenAI-compatible 请求走 HTTP/1.1。
-- Bugs:
-  - [x] 无阻塞 bug
-  - 修复记录：修复新增会话只创建本地 thread 导致无 `backendId`、消息不会进入后端 LLM 的问题；修复机器人设置保存未等待后端响应的问题；修复后端优先选择默认 `primary` 而不是当前会话角色模型配置的问题；修复 SiliconFlow HTTP/2 断开导致的 Provider 超时问题。
-- Gate:
-  - [x] Dev Done
-  - [x] Test Done
-  - [x] Planning Agent 已批准进入下一阶段：自动进入 B21。
-
-### B21 - 工具审计展示与重试策略
-
-- Planning Agent:
-  - [x] 阶段范围已确认：在 B20 真实 Provider 链路基础上，补齐工具授权 UI、工具调用审计展示、Provider 失败重试策略，并评估是否新增 Anthropic Messages 网关。
-  - [x] 验收标准已确认：工具调用事件可在前端解释；失败原因不泄露密钥；重试策略不重复写入用户消息；Anthropic Messages 若实现必须有独立测试覆盖。
-  - [x] 依赖和风险已记录：依赖 B20 真实 Provider 链路；Anthropic Messages 与 OpenAI Chat Completions 响应结构不同，不能只改下拉选项。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
@@ -1231,9 +1206,61 @@
 ### B20 - 真实 Provider 联调与工具治理扩展
 
 - Planning Agent:
-  - [x] 阶段范围已确认：在用户提供有效 SiliconFlow API Key 后执行真实外部调用联调；把工具调用结果、失败原因和审计记录进一步展示到前端；补充工具授权和重试策略。
-  - [x] 验收标准已确认：不打印真实 API Key；真实请求仍走 Spring 安全边界；工具调用必须可审计、可限流、可在 UI 中解释；外部 Provider 失败不阻断消息入库。
+  - [x] 阶段范围已确认：在用户提供有效 SiliconFlow API Key 后执行真实外部调用联调，修复当前会话角色模型配置链路。
+  - [x] 验收标准已确认：不打印真实 API Key；真实请求仍走 Spring 安全边界；当前会话机器人配置保存后，会话页必须能使用同一角色配置返回模型内容。
   - [x] 依赖和风险已记录：依赖 B19 LLM/工具链路；真实 Provider 可能受网络、余额、模型权限、限流影响，必须保留本地 mock 回归路径。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：无新增迁移；复用 `roles.config.secret_ref` 和现有 thread/message 表。
+  - [x] 自测命令已运行
+  - 变更文件：`AgentLlmService.java`、`OpenAiCompatibleLlmGateway.java`、`src/stores/thread.js`、`src/stores/role.js`、`src/views/MainWorkspace.vue`、`src/views/RobotSettings.vue`、`src/components/shared/ModalHost.vue`、`src/api/threads.js`。
+  - 自测命令：`npm run test:unit`、`npm run build`、`./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.llm.OpenAiCompatibleLlmGatewayTest --tests com.agentdesk.backend.tools.DeveloperToolServiceTest`、`./gradlew bootJar`。
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：同 Development Agent 自测命令；另执行真实前端 Playwright 流程和 SiliconFlow 直连 curl。
+  - 测试结果：`Pro/zai-org/GLM-5.1` 在真实前端“新增会话 -> 当前机器人配置 -> 发送 hello”流程中成功返回；`Pro/zai-org/GLM-4.7` 在默认 HTTP/2 下会约 60 秒断开，后端已强制 OpenAI-compatible 请求走 HTTP/1.1。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：修复新增会话只创建本地 thread 导致无 `backendId`、消息不会进入后端 LLM 的问题；修复机器人设置保存未等待后端响应的问题；修复后端优先选择默认 `primary` 而不是当前会话角色模型配置的问题；修复 SiliconFlow HTTP/2 断开导致的 Provider 超时问题。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：自动进入 B21。
+
+### B21 - 模型连接测试与真实响应约束
+
+- Planning Agent:
+  - [x] 阶段范围已确认：增加机器人模型连接测试；新建会话保持空白；前端发送消息后只展示后端 LLM 返回内容；2 分钟未收到后端内容时显示错误。
+  - [x] 验收标准已确认：连接测试不保存密钥也不打印密钥；新建 thread 的 `initial_messages` 为空；前端不再写入本地模拟助手回答或工具状态文案；超时错误明确展示给用户。
+  - [x] 依赖和风险已记录：依赖 B20 真实 Provider 链路；当前后端仍以 OpenAI Chat Completions 为真实调用网关，Anthropic Messages 后续单独阶段评估。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：无新增迁移。
+  - [x] 自测命令已运行
+  - 变更文件：`RoleController.java`、`RoleService.java`、`RoleDtos.java`、`LlmGateway.java`、`OpenAiCompatibleLlmGateway.java`、`JdbcWorkspaceRepository.java`、`InMemoryWorkspaceRepository.java`、`AgentLlmService.java`、`src/api/roles.js`、`src/api/threads.js`、`src/services/sseClient.js`、`src/stores/thread.js`、`src/views/MainWorkspace.vue`、`src/views/RobotSettings.vue`、`src/assets/global.css`。
+  - 自测命令：`npm run test:unit`、`npm run build`、`./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.llm.OpenAiCompatibleLlmGatewayTest`、`./gradlew test bootJar`。
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：同 Development Agent 自测命令；另执行真实前端 Playwright 流程，使用 SiliconFlow `Pro/zai-org/GLM-5.1` 验证连接测试和会话响应。
+  - 测试结果：新建会话初始气泡数为 0；模型连接测试成功；发送 `hello` 后前端没有预置助手气泡，直到后端返回模型内容后才展示。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：修复新建会话后端初始消息不为空的问题；修复前端发送消息立即生成本地助手文案的问题；修复 SSE 回放里工具事件被展示成回答的问题；增加 120 秒超时和可中断请求。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：自动进入 B22。
+
+### B22 - 工具审计展示与 Provider 重试策略
+
+- Planning Agent:
+  - [x] 阶段范围已确认：补齐工具授权 UI、工具调用审计展示、Provider 失败重试策略，并评估是否新增 Anthropic Messages 网关。
+  - [x] 验收标准已确认：工具调用事件可解释但不冒充模型回答；失败原因不泄露密钥；重试策略不重复写入用户消息；Anthropic Messages 若实现必须有独立测试覆盖。
+  - [x] 依赖和风险已记录：依赖 B21 真实响应约束；Anthropic Messages 与 OpenAI Chat Completions 响应结构不同，不能只改下拉选项。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

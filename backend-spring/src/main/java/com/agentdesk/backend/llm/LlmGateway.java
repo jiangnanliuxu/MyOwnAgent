@@ -14,7 +14,8 @@ public interface LlmGateway {
             String apiKey,
             String model,
             String apiFormat,
-            double temperature
+            double temperature,
+            Integer maxTokens
     ) {
     }
 

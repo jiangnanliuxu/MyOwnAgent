@@ -145,13 +145,7 @@ public class JdbcWorkspaceRepository implements WorkspaceRepository {
                 "未编排",
                 folder.path()
         );
-        List<BootstrapResponse.MessageView> messages = List.of(
-                insertMessage(folder.projectId(), thread.id(), "seed-thread-welcome", "agent", "主助手",
-                        "已为 " + folder.name() + " 目录新建独立会话。这里会有自己的上下文、消息和后续 agent 接力记录。", "completed"),
-                insertMessage(folder.projectId(), thread.id(), "seed-thread-review", "agent", "review-agent",
-                        "你可以把这个会话当作一条新的分析线，不会覆盖同目录下其他会话。", "completed")
-        );
-        return new WorkspaceDtos.CreateThreadResponse(thread, messages);
+        return new WorkspaceDtos.CreateThreadResponse(thread, List.of());
     }
 
     @Override
@@ -253,7 +247,7 @@ public class JdbcWorkspaceRepository implements WorkspaceRepository {
                 : (StringUtils.hasText(idempotencyKey) ? idempotencyKey.trim() : "msg-" + UUID.randomUUID());
         insertMessageIfAbsent(projectId, threadId, clientMessageId, "user", null, request.content().trim(), "completed");
         insertMessageIfAbsent(projectId, threadId, clientMessageId + ":agent", "agent", "主助手",
-                "Agent 编排任务已排队，等待 B09 SSE 接入后输出。", "pending");
+                "", "pending");
         BootstrapResponse.MessageView userMessage = findMessage(threadId, clientMessageId).orElseThrow();
         BootstrapResponse.MessageView placeholder = findMessage(threadId, clientMessageId + ":agent").orElseThrow();
         return new WorkspaceDtos.SendMessageResponse(

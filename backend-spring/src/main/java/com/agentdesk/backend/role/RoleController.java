@@ -51,6 +51,15 @@ public class RoleController {
         return ApiResponse.success(roleService.patchRole(user, roleId, request));
     }
 
+    @PostMapping("/roles/{roleId}/test-connection")
+    public ApiResponse<RoleDtos.TestConnectionResponse> testConnection(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable UUID roleId,
+            @RequestBody RoleDtos.TestConnectionRequest request
+    ) {
+        return ApiResponse.success(roleService.testConnection(user, roleId, request));
+    }
+
     @PostMapping("/folders/{folderId}/sync-roles")
     public ApiResponse<RoleDtos.SyncRolesResponse> syncFolderRoles(
             @AuthenticationPrincipal AuthenticatedUser user,

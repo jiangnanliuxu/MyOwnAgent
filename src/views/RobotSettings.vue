@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import TopNav from '../components/layout/TopNav.vue';
+import { testRoleConnection } from '../api/roles';
 import { useModal } from '../composables/useModal';
 import { useToast } from '../composables/useToast';
 import { useRoleStore } from '../stores/role';
@@ -44,6 +45,35 @@ function setActiveRole(roleId) {
 
 function renderList(values, className = 'status-chip') {
   return values.map((value) => `<span class="${className}">${escapeHTML(value)}</span>`).join('');
+}
+
+function collectModelConfig(modalBody) {
+  const apiKeyInput = modalBody.querySelector('#provider-key-input').value.trim();
+  return {
+    provider: modalBody.querySelector('#provider-name-input').value.trim(),
+    officialUrl: modalBody.querySelector('#provider-url-input').value.trim(),
+    apiKey: apiKeyInput.startsWith('已') || apiKeyInput.includes('secret_ref') ? '' : apiKeyInput,
+    endpoint: modalBody.querySelector('#provider-endpoint-input').value.trim(),
+    apiFormat: modalBody.querySelector('#provider-format-input').value,
+    model: modalBody.querySelector('#provider-model-input').value.trim(),
+    modelMapping: modalBody.querySelector('#provider-mapping-input').value.trim(),
+    configJson: modalBody.querySelector('#provider-json-input').value
+  };
+}
+
+function modelPatchToBackendConfig(patch, role) {
+  const config = {
+    provider: patch.provider,
+    official_url: patch.officialUrl,
+    endpoint: patch.endpoint,
+    api_format: patch.apiFormat,
+    model: patch.model,
+    model_mapping: patch.modelMapping,
+    config_json: patch.configJson,
+    secret_ref: role.secretRef
+  };
+  if (patch.apiKey) config.api_key = patch.apiKey;
+  return config;
 }
 
 function openModelConfig() {
@@ -90,27 +120,54 @@ function openModelConfig() {
           <span>配置 JSON</span>
           <textarea class="text-input modal-textarea modal-codearea" id="provider-json-input">${escapeHTML(role.configJson || '')}</textarea>
         </label>
+        <div class="modal-field modal-field-full connection-test-row">
+          <button class="tiny-action" id="provider-test-connection" type="button">测试连接</button>
+          <span class="connection-test-result" id="provider-test-result">保存前可先测试供应商模型接口。</span>
+        </div>
       </div>
     `,
     async onSave(modalBody) {
-      const apiKeyInput = modalBody.querySelector('#provider-key-input').value.trim();
+      const patch = collectModelConfig(modalBody);
       try {
-        await roleStore.updateRole(roleStore.activeRoleId, {
-          provider: modalBody.querySelector('#provider-name-input').value.trim(),
-          officialUrl: modalBody.querySelector('#provider-url-input').value.trim(),
-          apiKey: apiKeyInput.startsWith('已') || apiKeyInput.includes('secret_ref') ? '' : apiKeyInput,
-          endpoint: modalBody.querySelector('#provider-endpoint-input').value.trim(),
-          apiFormat: modalBody.querySelector('#provider-format-input').value,
-          model: modalBody.querySelector('#provider-model-input').value.trim(),
-          modelMapping: modalBody.querySelector('#provider-mapping-input').value.trim(),
-          configJson: modalBody.querySelector('#provider-json-input').value
-        });
+        await roleStore.updateRole(roleStore.activeRoleId, patch);
         showToast(roleStore.backendReady ? '模型配置已保存到后端' : '模型配置已更新到本地');
       } catch (error) {
         showToast(error.message || '模型配置保存失败');
         throw error;
       }
     }
+  });
+  nextTick(() => {
+    const modalBody = document.querySelector('#modal-body');
+    const button = modalBody?.querySelector('#provider-test-connection');
+    const result = modalBody?.querySelector('#provider-test-result');
+    if (!button || !result) return;
+    button.addEventListener('click', async () => {
+      const currentRole = activeRole.value;
+      if (!currentRole.backendId) {
+        result.textContent = '当前角色还没有后端 ID，请先连接后端。';
+        result.className = 'connection-test-result is-failed';
+        return;
+      }
+      button.disabled = true;
+      result.textContent = '正在测试模型接口...';
+      result.className = 'connection-test-result is-pending';
+      try {
+        const patch = collectModelConfig(modalBody);
+        const response = await testRoleConnection(currentRole.backendId, {
+          config: modelPatchToBackendConfig(patch, currentRole)
+        });
+        result.textContent = response.success
+          ? `连接成功，${response.latency_ms || response.latencyMs || 0}ms。`
+          : `连接失败：${response.message}`;
+        result.className = `connection-test-result ${response.success ? 'is-success' : 'is-failed'}`;
+      } catch (error) {
+        result.textContent = error.message || '连接测试失败';
+        result.className = 'connection-test-result is-failed';
+      } finally {
+        button.disabled = false;
+      }
+    });
   });
 }
 

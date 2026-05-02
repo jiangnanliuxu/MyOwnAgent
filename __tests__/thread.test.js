@@ -73,6 +73,32 @@ describe('thread store', () => {
     expect(store.conversations['backend-review'][0].text).toBe('后端消息');
   });
 
+  it('keeps backend-created threads empty when there are no messages', () => {
+    const store = useThreadStore();
+    store.applyBackendBootstrap({
+      folders: [{ name: 'src/auth', path: 'src/auth' }],
+      threads: {
+        'thread-empty': {
+          id: '00000000-0000-0000-0000-000000000011',
+          client_key: 'thread-empty',
+          folder_id: '00000000-0000-0000-0000-000000000010',
+          folder: 'src/auth',
+          file: 'src/auth',
+          label: '会话 3',
+          summary: '新的独立会话',
+          role_keys: ['primary'],
+          focus_role_key: 'primary',
+          role_status: '未编排'
+        }
+      },
+      recent_messages: {
+        'thread-empty': []
+      }
+    });
+
+    expect(store.conversations['thread-empty']).toEqual([]);
+  });
+
   it('parses backend SSE replay and applies the completed agent message', () => {
     const store = useThreadStore();
     store.appendConversationBubble('session-review', { kind: 'agent', title: '主助手', text: '等待模型回应...' });

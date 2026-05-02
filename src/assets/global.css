@@ -1372,6 +1372,29 @@ button.directory-item {
   white-space: pre;
 }
 
+.connection-test-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.connection-test-result {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.connection-test-result.is-pending {
+  color: #6c5f1e;
+}
+
+.connection-test-result.is-success {
+  color: #1d6b45;
+}
+
+.connection-test-result.is-failed {
+  color: #9f2d2d;
+}
+
 .choice-stack {
   display: grid;
   gap: 8px;

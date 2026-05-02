@@ -11,7 +11,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.blankOrNullString;
@@ -89,6 +94,46 @@ class RoleControllerTest {
     }
 
     @Test
+    void roleModelConnectionCanBeTestedBeforeSaving() throws Exception {
+        AuthSession session = register("b21-" + UUID.randomUUID() + "@example.com");
+        JsonNode roles = read(mockMvc.perform(get("/api/v1/projects/{projectId}/roles?include_thread_roles=true", session.projectId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isOk())
+                .andReturn());
+        UUID roleId = findRoleId(roles, "thread-role-session-review");
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        HttpServer llmServer = startLlmServer(requestBody);
+        try {
+            mockMvc.perform(post("/api/v1/roles/{roleId}/test-connection", roleId)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "config": {
+                                        "provider": "Local Mock",
+                                        "endpoint": "http://127.0.0.1:%d/v1/chat/completions",
+                                        "api_format": "OpenAI Chat Completions",
+                                        "model": "mock-model",
+                                        "api_key": "test-key",
+                                        "config_json": "{\\"temperature\\":0.2,\\"max_tokens\\":16}"
+                                      }
+                                    }
+                                    """.formatted(llmServer.getAddress().getPort())))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.success").value(true))
+                    .andExpect(jsonPath("$.data.status").value("connected"))
+                    .andExpect(jsonPath("$.data.model").value("mock-model"))
+                    .andExpect(jsonPath("$.data.latency_ms", not(blankOrNullString())));
+
+            JsonNode sent = objectMapper.readTree(requestBody.get());
+            assertThat(sent.path("model").asText()).isEqualTo("mock-model");
+            assertThat(sent.path("max_tokens").asInt()).isEqualTo(16);
+        } finally {
+            llmServer.stop(0);
+        }
+    }
+
+    @Test
     void crossUserRoleAccessIsRejected() throws Exception {
         AuthSession owner = register("b06-owner-" + UUID.randomUUID() + "@example.com");
         AuthSession other = register("b06-other-" + UUID.randomUUID() + "@example.com");
@@ -160,6 +205,22 @@ class RoleControllerTest {
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private HttpServer startLlmServer(AtomicReference<String> requestBody) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] body = """
+                    {"choices":[{"message":{"role":"assistant","content":"OK"}}]}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        return server;
     }
 
     private record AuthSession(String accessToken, UUID projectId) {

@@ -7,11 +7,12 @@ export function createFolderThread(folderId, payload) {
   });
 }
 
-export function sendThreadMessage(threadId, payload, idempotencyKey) {
+export function sendThreadMessage(threadId, payload, idempotencyKey, options = {}) {
   return apiRequest(`/api/v1/threads/${threadId}/messages`, {
     method: 'POST',
     headers: idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {},
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: options.signal
   });
 }
 
