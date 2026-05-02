@@ -1,4 +1,5 @@
 <script setup>
+import { onMounted } from 'vue';
 import TopNav from '../components/layout/TopNav.vue';
 import { useModal } from '../composables/useModal';
 import { useSectionDirectory } from '../composables/useSectionDirectory';
@@ -31,6 +32,11 @@ function escapeHTML(value) {
 function toggleSkill(skill) {
   const updated = skillStore.toggleSkill(skill.id);
   showToast(`${updated.name} 已${updated.status}`);
+}
+
+async function syncSkillPolicy() {
+  await skillStore.syncPolicy();
+  showToast('装载策略已同步');
 }
 
 function openSkillModal(skill = null) {
@@ -152,7 +158,7 @@ function openEndpointModal(endpoint = null) {
       patch.id = target.id || patch.name.toLowerCase().replaceAll(' ', '-');
 
       if (endpoint) {
-        Object.assign(endpoint, patch);
+        mcpStore.saveEndpoint(endpoint, patch);
       } else {
         mcpStore.addEndpoint(patch);
       }
@@ -170,6 +176,10 @@ function checkAllEndpoints() {
   mcpStore.checkAll();
   showToast('批量健康检查完成');
 }
+
+onMounted(async () => {
+  await Promise.all([skillStore.hydrateFromBackend(), mcpStore.hydrateFromBackend()]);
+});
 </script>
 
 <template>
@@ -229,7 +239,7 @@ function checkAllEndpoints() {
             </div>
             <div class="section-action-bar">
               <button class="tiny-action" id="open-install-skill" type="button" @click="openSkillModal(null)">新增 Skill</button>
-              <button class="tiny-action" id="open-sync-skill-policy" type="button" @click="showToast('装载策略已同步')">同步装载策略</button>
+              <button class="tiny-action" id="open-sync-skill-policy" type="button" @click="syncSkillPolicy">同步装载策略</button>
             </div>
             <div class="catalog-grid" id="skill-catalog">
               <article v-for="skill in skillStore.skills" :key="skill.id" class="catalog-card">

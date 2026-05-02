@@ -1,11 +1,17 @@
 import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { COMPRESSION_OPTIONS, DUTY_PRESETS, PROMPT_LAYER_OPTIONS, ROLE_LIBRARY } from '../data';
+import { listProjectRoles, patchProjectRole } from '../api/roles';
+import { apiSession, isBackendConfigured } from '../api/session';
 
 const ROLE_STATE_STORAGE_KEY = 'agentDesk.roleState.v1';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function readStoredRoleState() {
@@ -53,10 +59,90 @@ function buildThreadRole(context) {
   };
 }
 
+function readConfig(config = {}, key, fallback = '') {
+  return config?.[key] ?? fallback;
+}
+
+function mapBackendRole(role) {
+  const config = role.config || {};
+  const clientKey = role.client_key || role.clientKey || role.id;
+  return {
+    id: clientKey,
+    backendId: role.id,
+    clientKey,
+    name: role.name,
+    tag: role.tag,
+    alias: role.alias,
+    description: role.description,
+    shortDescription: role.short_description || role.shortDescription || role.description,
+    status: role.status,
+    isBuiltin: role.is_builtin ?? role.isBuiltin,
+    model: readConfig(config, 'model', '待配置'),
+    provider: readConfig(config, 'provider', '未选择'),
+    officialUrl: readConfig(config, 'official_url'),
+    apiKey: config.secret_ref ? '已托管 secret_ref' : '',
+    secretRef: readConfig(config, 'secret_ref'),
+    endpoint: readConfig(config, 'endpoint'),
+    apiFormat: readConfig(config, 'api_format'),
+    modelMapping: readConfig(config, 'model_mapping'),
+    configJson: readConfig(config, 'config_json', '{}'),
+    compression: readConfig(config, 'compression', '轻压缩'),
+    promptPrefix: readConfig(config, 'prompt_prefix'),
+    routing: readConfig(config, 'routing'),
+    routingChips: asArray(config.routing_chips),
+    tools: asArray(config.tools),
+    handoff: readConfig(config, 'handoff'),
+    matrixCopy: readConfig(config, 'matrix_copy', role.short_description || role.shortDescription || ''),
+    duties: asArray(config.duties),
+    customDuty: readConfig(config, 'custom_duty', role.description || ''),
+    promptLayers: asArray(config.prompt_layers),
+    icon: readConfig(config, 'icon'),
+    boundThreads: asArray(role.bound_threads || role.boundThreads)
+  };
+}
+
+function roleToPatchRequest(role, rawPatch = {}) {
+  const config = {
+    model: role.model,
+    provider: role.provider,
+    official_url: role.officialUrl,
+    endpoint: role.endpoint,
+    api_format: role.apiFormat,
+    model_mapping: role.modelMapping,
+    config_json: role.configJson,
+    compression: role.compression,
+    prompt_prefix: role.promptPrefix,
+    routing: role.routing,
+    routing_chips: role.routingChips || [],
+    tools: role.tools || [],
+    handoff: role.handoff,
+    matrix_copy: role.matrixCopy,
+    duties: role.duties || [],
+    custom_duty: role.customDuty,
+    prompt_layers: role.promptLayers || [],
+    icon: role.icon || '',
+    secret_ref: role.secretRef
+  };
+  if (Object.prototype.hasOwnProperty.call(rawPatch, 'apiKey') && rawPatch.apiKey) {
+    config.api_key = rawPatch.apiKey;
+  }
+  return {
+    name: role.name,
+    alias: role.alias,
+    tag: role.tag,
+    description: role.description,
+    short_description: role.shortDescription,
+    status: role.status,
+    config
+  };
+}
+
 export const useRoleStore = defineStore('role', () => {
   const storedState = readStoredRoleState();
   const roles = reactive({ ...clone(ROLE_LIBRARY), ...(storedState.roles || {}) });
   const activeRoleId = ref('primary');
+  const backendReady = ref(false);
+  const backendError = ref('');
 
   const activeRole = computed(() => getRole(activeRoleId.value));
 
@@ -66,16 +152,61 @@ export const useRoleStore = defineStore('role', () => {
   }
 
   function getRole(roleId) {
-    return roles[roleId] || roles.primary;
+    return roles[roleId] || Object.values(roles).find((role) => role.backendId === roleId || role.clientKey === roleId) || roles.primary;
   }
 
   function setActiveRole(roleId) {
-    activeRoleId.value = roles[roleId] ? roleId : 'primary';
+    const role = getRole(roleId);
+    activeRoleId.value = role?.id || 'primary';
   }
 
   function updateRole(roleId, patch) {
-    Object.assign(getRole(roleId), patch);
+    const role = getRole(roleId);
+    const backendMode = isBackendConfigured() && role?.backendId;
+    const localPatch = backendMode && Object.prototype.hasOwnProperty.call(patch, 'apiKey')
+      ? { ...patch, apiKey: patch.apiKey ? '已提交到后端密钥托管' : role.apiKey }
+      : patch;
+    Object.assign(role, localPatch);
     persistState();
+    if (backendMode) {
+      patchProjectRole(role.backendId, roleToPatchRequest(role, patch))
+        .then((response) => {
+          const updated = response?.role || response;
+          if (updated) Object.assign(role, mapBackendRole(updated));
+          backendError.value = '';
+          persistState();
+        })
+        .catch((error) => {
+          backendError.value = error.message || '角色保存失败';
+        });
+    }
+    return role;
+  }
+
+  function applyBackendRoles(data) {
+    const items = Array.isArray(data) ? data : data?.items || [];
+    items.forEach((item) => {
+      const role = mapBackendRole(item);
+      roles[role.id] = { ...(roles[role.id] || {}), ...role };
+    });
+    backendReady.value = Boolean(items.length);
+    persistState();
+    return items.length;
+  }
+
+  async function hydrateFromBackend() {
+    if (!isBackendConfigured()) return false;
+    try {
+      const { projectId } = apiSession();
+      const data = await listProjectRoles(projectId, { includeThreadRoles: true });
+      applyBackendRoles(data);
+      backendError.value = '';
+      return true;
+    } catch (error) {
+      backendReady.value = false;
+      backendError.value = error.message || '角色加载失败';
+      return false;
+    }
   }
 
   function ensureThreadRole(context) {
@@ -96,6 +227,8 @@ export const useRoleStore = defineStore('role', () => {
   return {
     roles,
     activeRoleId,
+    backendReady,
+    backendError,
     activeRole,
     dutyPresets: DUTY_PRESETS,
     compressionOptions: COMPRESSION_OPTIONS,
@@ -103,6 +236,8 @@ export const useRoleStore = defineStore('role', () => {
     getRole,
     setActiveRole,
     updateRole,
+    applyBackendRoles,
+    hydrateFromBackend,
     ensureThreadRole
   };
 });

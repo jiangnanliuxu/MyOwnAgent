@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| 全部阶段 | Completed | 无 | B16 已完成，等待下一轮需求规划 |
+| B18 | In Progress | 无 | Planning Agent 开始前端认证与后端模式入口规划 |
 
 ## 阶段拆分
 
@@ -49,6 +49,8 @@
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [x] | [x] | 无 | 对应 `/settings` |
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [x] | [x] | 无 | 分页面逐步切换 |
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [x] | [x] | 无 | 生产前收口完成 |
+| B17 | Role/Skill/MCP 前端接入 | `roles`、`skills`、`mcp` API adapter，Pinia store 后端可选读写，能力页联调 | [x] | [x] | [x] | 无 | 保持 mock fallback |
+| B18 | 前端认证与后端模式入口 | 登录/注册入口、token/projectId 持久化、后端模式状态提示、登出 | [x] | [ ] | [ ] | In Progress | 解决手动 localStorage 配置 |
 
 ## 阶段记录模板
 
@@ -1018,7 +1020,7 @@
     - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
   - 测试结果：
     - Compose 配置解析通过。
-    - GitHub Actions workflow 已作为 `docs/ci-workflow.example.yml` 示例保留；当前 OAuth 凭据缺少 `workflow` scope，不能直接推送 `.github/workflows/ci.yml`。
+    - GitHub Actions workflow 已作为 `docs/ci-workflow.example.yml` 示例保留，并在更新 GitHub token 后启用 `.github/workflows/ci.yml`。
     - Vitest：4 files / 7 tests passed。
     - Vite build：通过。
     - Spring 后端：`clean test` 和 `bootJar` 均通过。
@@ -1031,4 +1033,82 @@
 - Gate:
   - [x] Dev Done
   - [x] Test Done
-  - [x] Planning Agent 已批准进入下一阶段：当前已无预设 B17，下一阶段需按新需求规划后追加。
+  - [x] Planning Agent 已批准进入下一阶段：已按新需求追加并进入 B17。
+
+### B17 - Role/Skill/MCP 前端接入
+
+- Planning Agent:
+  - [x] 阶段范围已确认：补齐前端 `roles`、`skills`、`mcp` API adapter，让机器人设置页和能力管理页在后端模式下可加载、保存、切换和健康检查 Spring 接口。
+  - [x] 验收标准已确认：未配置后端时 mock 行为不变；配置后端会话时 store 调用 Spring API；真实密钥不进入前端持久化；现有 E2E 不回归。
+  - [x] 依赖和风险已记录：依赖 B06-B08 后端接口和 B15 `apiSession`；前端仍不直连 Python/MCP，MCP 调用只通过 Spring 控制面。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B17 无数据库迁移；新增前端 API adapter 和 store 后端模式映射。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `src/api/roles.js`
+    - `src/api/skills.js`
+    - `src/api/mcp.js`
+    - `src/stores/role.js`
+    - `src/stores/skill.js`
+    - `src/stores/mcp.js`
+    - `src/stores/thread.js`
+    - `src/views/RobotSettings.vue`
+    - `src/views/IntegrationSettings.vue`
+    - `__tests__/role.test.js`
+    - `__tests__/skill.test.js`
+    - `__tests__/mcp.test.js`
+    - `AGENTS.md`
+    - `BACKEND-DEVELOPMENT-LOG.md`
+  - 自测命令：
+    - `git diff --check`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
+    - `cd backend-spring && ./gradlew clean test && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest && .venv/bin/python -m compileall app tests`
+  - 测试结果：
+    - Vitest：4 files / 10 tests passed，新增 Role/Skill/MCP 后端 DTO 映射测试。
+    - Vite build：通过。
+    - Playwright：101 passed，确认 mock 模式页面不回归。
+    - Spring 后端：`clean test` 和 `bootJar` 均通过。
+    - Python Agent：8 passed，`compileall app tests` 通过；本机 Python 3.9 + LibreSSL 触发 urllib3 兼容 warning，不影响测试结果。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 无。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：自动进入 B18。
+
+### B18 - 前端认证与后端模式入口
+
+- Planning Agent:
+  - [x] 阶段范围已确认：新增前端登录/注册入口，调用 Spring `/api/v1/auth/login`、`/api/v1/auth/register`、`/api/v1/auth/me`，写入 `agentDesk.api.accessToken` 和 `agentDesk.api.projectId`，并提供后端模式状态提示和登出。
+  - [x] 验收标准已确认：未配置后端 URL 时不显示破坏性登录流程；配置后端后可从 UI 建立 API session；登出会清理 token/projectId；现有 mock 页面和 E2E 不回归。
+  - [x] 依赖和风险已记录：依赖 B03 Auth API 和 B15/B17 `apiSession`；本阶段不保存真实密码到 localStorage，不在日志中输出 token。
+- Development Agent:
+  - [ ] 代码实现完成
+  - [ ] 数据库迁移/配置更新完成
+  - [ ] 自测命令已运行
+  - 变更文件：
+  - 自测命令：
+- Testing Agent:
+  - [ ] 单元测试通过
+  - [ ] 集成测试通过
+  - [ ] 回归测试通过
+  - 测试命令：
+  - 测试结果：
+- Bugs:
+  - [ ] 无阻塞 bug
+  - 修复记录：
+- Gate:
+  - [ ] Dev Done
+  - [ ] Test Done
+  - [ ] Planning Agent 已批准进入下一阶段

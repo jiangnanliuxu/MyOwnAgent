@@ -230,7 +230,7 @@ export const useThreadStore = defineStore('thread', () => {
         roles: thread.role_keys || thread.roles || ['primary'],
         focusRole: thread.focus_role_key || 'primary',
         roleStatus: thread.role_status || '已编排',
-        sessionRoleId: thread.session_role_id || getThreadRoleId(thread.client_key || threadKey)
+        sessionRoleId: thread.session_role_key || thread.session_role_id || getThreadRoleId(thread.client_key || threadKey)
       };
       contexts[context.id] = context;
       conversations[context.id] = (data.recent_messages?.[threadKey] || []).map((message) => ({

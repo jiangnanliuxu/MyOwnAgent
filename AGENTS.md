@@ -26,7 +26,9 @@
 - `BACKEND-ARCHITECTURE.md`：后端架构主文档，包含 Spring AI + Python 方案、REST/SSE/API 契约、RAG、MCP、Skill、数据模型、部署和前端接入细节。
 - `BACKEND-DEVELOPMENT-LOG.md`：后端分段开发日志，记录 Planning/Development/Testing 三个子 Agent 的阶段进度、开发勾选、测试勾选和 bug 修复闭环。
 - `src/data/index.js`：从原 `script.js` 提取的 mock 数据常量。
-- `src/stores/`：Pinia stores，包含 thread、role、skill、mcp。
+- `src/stores/`：Pinia stores，包含 thread、role、skill、mcp；未配置后端时使用 mock，配置后端会话后走 Spring API。
+- `src/api/`：封装后端 API adapter，包括 `http.js`、`bootstrap.js`、`threads.js`、`roles.js`、`skills.js`、`mcp.js`、`rag.js`、`settings.js`。
+- `src/services/`：封装浏览器侧业务适配，当前包含 `sseClient.js`。
 - `src/composables/`：modal、toast、clock、目录滚动、localStorage 等共享逻辑。
 - `src/components/layout/`：顶部导航、时钟等布局组件。
 - `src/components/shared/`：全局 modal host 与 toast。
@@ -34,11 +36,7 @@
 - `__tests__/`：Vitest store 单元测试。
 - `tests/`：Playwright E2E 测试目录。
 
-后端接入时建议新增但当前尚未实现的前端目录：
-
-- `src/api/`：封装后端 API adapter，包括 `http.js`、`bootstrap.js`、`threads.js`、`roles.js`、`skills.js`、`mcp.js`、`rag.js`、`settings.js`。
-- `src/services/`：封装浏览器侧业务适配，包括 `sseClient.js`、`uploadQueue.js`、`idempotency.js`、`threadHydrator.js`。
-- 接后端时不要让 Vue 页面直接散落 `fetch`；页面调用 Pinia store，store 再调用 `src/api`。
+接后端时不要让 Vue 页面直接散落 `fetch`；页面调用 Pinia store，store 再调用 `src/api`。
 
 ## 路由职责
 
@@ -93,6 +91,7 @@
 - `useRoleStore.ensureThreadRole(context)` 会把 thread 映射为会话角色：预置会话默认为 `Session Role`，新增会话默认为 `未编排角色`。
 - `useSkillStore` 管理 Skill 启停、配置和新增。
 - `useMcpStore` 管理 MCP 端点检查、批量健康检查和新增接口。
+- `useRoleStore`、`useSkillStore`、`useMcpStore` 在后端模式下会调用 Spring 的 `roles`、`skills`、`mcp` API；真实密钥只显示为 `secret_ref` 托管状态，前端不持久化明文。
 - `useModal` 与 `ModalHost.vue` 提供共享 modal，支持关闭按钮、遮罩、Escape、保存回调。
 - `useToast` 与 `ToastMessage.vue` 提供共享 toast。
 - `vite.config.js` 中的 `agentDeskSpaFallback()` 很重要：因为旧 `settings.html` 等文件仍保留，Vite dev server 会把 `/settings` clean URL 映射到旧 HTML；该中间件确保 `/settings`、`/robot-settings`、`/integration` 进入 Vue SPA。
@@ -186,7 +185,7 @@ http://localhost:4173/
 截至 2026-05-02，已验证：
 
 - `npm run build` 通过。
-- `npm run test:unit`：4 个 Vitest 文件、6 个 store 用例通过。
+- `npm run test:unit`：4 个 Vitest 文件、10 个 store 用例通过。
 - `npm run test:e2e`：101 个 Playwright 用例通过。
 - `cd backend-spring && ./gradlew clean test`：7 个 Spring Boot 测试通过。
 - `cd backend-spring && ./gradlew bootJar` 通过。

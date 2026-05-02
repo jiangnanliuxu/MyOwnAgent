@@ -30,7 +30,7 @@ function escapeHTML(value) {
     .replaceAll('"', '&quot;');
 }
 
-function syncThread(threadId) {
+async function syncThread(threadId) {
   const nextContext = threadStore.hydrateFromRoute(threadId);
   threadStore.getThreadIdsForFolder(nextContext.folder).forEach((fileThreadId) => {
     roleStore.ensureThreadRole(threadStore.getContext(fileThreadId));
@@ -273,7 +273,11 @@ function toggleDuty(duty, checked) {
   showToast('职责已更新');
 }
 
-onMounted(() => syncThread(route.query.thread));
+onMounted(async () => {
+  await threadStore.hydrateFromBackend();
+  await roleStore.hydrateFromBackend();
+  await syncThread(route.query.thread);
+});
 watch(() => route.query.thread, (threadId) => syncThread(threadId));
 </script>
 
