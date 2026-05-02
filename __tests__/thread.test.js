@@ -24,23 +24,54 @@ describe('thread store', () => {
 
   it('uses valid query thread before storage', () => {
     const store = useThreadStore();
-    window.localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, 'route-review');
-    const context = store.hydrateFromRoute('login-snapshot');
-    expect(context.id).toBe('login-snapshot');
-    expect(store.currentContext.file).toBe('tests/auth-login.spec.ts');
-    expect(store.currentContext.folder).toBe('tests');
+    store.applyBackendBootstrap({
+      folders: [{ name: 'backend/src', path: 'backend/src' }],
+      threads: {
+        'backend-review': {
+          id: '00000000-0000-0000-0000-000000000001',
+          client_key: 'backend-review',
+          folder_id: '00000000-0000-0000-0000-000000000010',
+          folder: 'backend/src',
+          file: 'backend/src/App.java',
+          label: 'review-agent',
+          summary: '后端审查',
+          role_keys: ['primary', 'review'],
+          focus_role_key: 'review',
+          role_status: '已编排'
+        },
+        'backend-test': {
+          id: '00000000-0000-0000-0000-000000000002',
+          client_key: 'backend-test',
+          folder_id: '00000000-0000-0000-0000-000000000010',
+          folder: 'backend/src',
+          file: 'backend/src/Test.java',
+          label: 'test-agent',
+          summary: '后端测试',
+          role_keys: ['primary', 'test'],
+          focus_role_key: 'test',
+          role_status: '已编排'
+        }
+      }
+    });
+    window.localStorage.setItem(ACTIVE_THREAD_STORAGE_KEY, 'backend-review');
+    const context = store.hydrateFromRoute('backend-test');
+    expect(context.id).toBe('backend-test');
+    expect(store.currentContext.file).toBe('backend/src/Test.java');
+    expect(store.currentContext.folder).toBe('backend/src');
   });
 
   it('groups threads by folder instead of exact file', () => {
     const store = useThreadStore();
-    expect(store.getThreadIdsForFolder('src/auth')).toEqual(['session-review', 'session-auth']);
-    expect(store.getThreadIdsForFile('src/auth/useSession.ts')).toEqual(['session-review', 'session-auth']);
+    store.addRelatedFolder('src/auth/useSession.ts');
+    const threadIds = store.getThreadIdsForFolder('src/auth');
+    expect(threadIds).toHaveLength(1);
+    expect(store.getThreadIdsForFile('src/auth/useSession.ts')).toEqual(threadIds);
   });
 
   it('falls back to default for unknown thread ids', () => {
     const store = useThreadStore();
     const context = store.hydrateFromRoute('missing-thread');
-    expect(context.id).toBe('session-review');
+    expect(context.id).toBe('empty-workspace');
   });
 
   it('can hydrate thread contexts from backend bootstrap payload', () => {
@@ -99,9 +130,34 @@ describe('thread store', () => {
     expect(store.conversations['thread-empty']).toEqual([]);
   });
 
+  it('does not show backend seed mock threads in recent folders', () => {
+    const store = useThreadStore();
+    store.applyBackendBootstrap({
+      folders: [{ name: 'src/auth', path: 'src/auth' }],
+      threads: {
+        'session-review': {
+          id: '00000000-0000-0000-0000-000000000021',
+          client_key: 'session-review',
+          folder_id: '00000000-0000-0000-0000-000000000010',
+          folder: 'src/auth',
+          file: 'src/auth/useSession.ts',
+          label: 'review-agent',
+          summary: '模拟会话',
+          role_keys: ['primary'],
+          focus_role_key: 'primary',
+          role_status: '已编排'
+        }
+      }
+    });
+
+    expect(store.getThreadIdsForFolder('src/auth')).toEqual([]);
+    expect(store.fileGroups).toEqual([]);
+  });
+
   it('parses backend SSE replay and applies the completed agent message', () => {
     const store = useThreadStore();
-    store.appendConversationBubble('session-review', { kind: 'agent', title: '主助手', text: '等待模型回应...' });
+    const context = store.addRelatedFolder('src/auth');
+    store.appendConversationBubble(context.id, { kind: 'agent', title: '主助手', text: '等待模型回应...' });
     const events = parseEventStream(`
 id: 7
 event: message_completed
@@ -109,7 +165,7 @@ data: {"id":7,"thread_id":"thread","type":"message_completed","data":{"id":"plac
 
 `);
 
-    store.applyBackendAgentEvents('session-review', events, 'placeholder-1');
+    store.applyBackendAgentEvents(context.id, events, 'placeholder-1');
 
     expect(store.currentConversation.at(-1).text).toBe('真实 LLM 回复');
   });

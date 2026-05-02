@@ -71,14 +71,15 @@
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
   - [ ] 自测命令已运行
-  - 变更文件：
-  - 自测命令：
+  - 变更文件：`src/stores/thread.js`、`__tests__/thread.test.js`
+  - 自测命令：`npm run test:unit`、`npm run build`
+  - 阶段内追加记录：按用户要求隐藏“最近关联目录”里的所有 seed/mock 会话，清理旧 localStorage 中的 `session-*`、`route-*`、`login-*` 模拟线程，让空工作区显示“未选择目录”，并把新增关联目录默认会话改为普通“会话 1”。
 - Testing Agent:
-  - [ ] 单元测试通过
+  - [x] 单元测试通过
   - [ ] 集成测试通过
-  - [ ] 回归测试通过
-  - 测试命令：
-  - 测试结果：
+  - [x] 回归测试通过
+  - 测试命令：`npm run test:unit`、`npm run build`、Playwright 新账号页面检查。
+  - 测试结果：Vitest 15 tests passed；Vite build 通过；新后端账号页面 `.agent-thread-card`、`.new-thread-card`、`.file-accordion` 数量均为 0，当前标题为“未选择目录”。
 - Bugs:
   - [ ] 无阻塞 bug
   - 修复记录：

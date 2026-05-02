@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { ACTIVE_THREAD_STORAGE_KEY, THREAD_CONTEXTS } from '../data';
+import { ACTIVE_THREAD_STORAGE_KEY } from '../data';
 import { fetchBootstrap } from '../api/bootstrap';
 import { uploadThreadRagFile } from '../api/rag';
 import { isBackendConfigured, apiSession } from '../api/session';
@@ -8,21 +8,29 @@ import { syncFolderRoles } from '../api/roles';
 import { createFolderThread, sendThreadMessage } from '../api/threads';
 import { fetchThreadEvents } from '../services/sseClient';
 
-const DEFAULT_THREAD_ID = 'session-review';
+const EMPTY_THREAD_ID = 'empty-workspace';
 const THREAD_STATE_STORAGE_KEY = 'agentDesk.threadState.v1';
 const DEFAULT_LLM_TIMEOUT_MS = 120000;
-
-const DEFAULT_CONVERSATION = [
-  { kind: 'user', title: '你', text: '我想尽快知道这次重构会影响哪些页面和测试。' },
-  { kind: 'agent', title: '主助手', text: '我已经锁定认证模块、路由守卫和两组回归测试。建议先跑关键路径，再把差异归类。' },
-  { kind: 'user', title: '你', text: '那先告诉我最可能改动的文件，再给一个最小验证顺序。' },
-  {
-    kind: 'agent',
-    id: 'suggestion-bubble',
-    title: '主助手',
-    text: '优先看 `src/auth`、`src/router` 和 `tests` 这三个目录，然后先验证登录主路径。'
-  }
-];
+const MOCK_THREAD_KEYS = new Set([
+  'session-review',
+  'session-auth',
+  'route-primary',
+  'route-review',
+  'route-test',
+  'login-test',
+  'login-snapshot'
+]);
+const EMPTY_CONTEXT = {
+  id: EMPTY_THREAD_ID,
+  label: '新会话',
+  file: '未选择目录',
+  folder: '未选择目录',
+  summary: '请选择目录或新建会话',
+  roles: ['primary'],
+  focusRole: 'primary',
+  roleStatus: '未编排',
+  sessionRoleId: `thread-role-${EMPTY_THREAD_ID}`
+};
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -64,29 +72,7 @@ function readStoredThreadState() {
 }
 
 function createConversationForContext(context) {
-  const folder = getContextFolder(context);
-  if (context.id === DEFAULT_THREAD_ID) {
-    return clone(DEFAULT_CONVERSATION);
-  }
-
-  return [
-    {
-      kind: 'user',
-      title: '你',
-      text: `切到 ${folder}，先看 ${context.label} 这条会话。`
-    },
-    {
-      kind: 'agent',
-      title: '主助手',
-      text: `${context.summary}。当前会话会优先调度 ${context.roles.join('、')} 这些角色，并保留独立的消息上下文。`
-    },
-    {
-      kind: 'agent',
-      id: `suggestion-${context.id}`,
-      title: context.label,
-      text: `这个会话绑定到 ${folder} 目录，切换到其他会话时这里会展示另一组对话内容。`
-    }
-  ];
+  return [];
 }
 
 function mapBackendMessages(messages = []) {
@@ -101,26 +87,39 @@ function backendValue(source, snakeKey, camelKey, fallback = undefined) {
   return source?.[snakeKey] ?? source?.[camelKey] ?? fallback;
 }
 
+function isMockThreadKey(threadId) {
+  return MOCK_THREAD_KEYS.has(threadId);
+}
+
+function sanitizeStoredState(state = {}) {
+  const contexts = Object.fromEntries(
+    Object.entries(state.contexts || {}).filter(([threadId]) => !isMockThreadKey(threadId))
+  );
+  const conversations = Object.fromEntries(
+    Object.entries(state.conversations || {}).filter(([threadId]) => !isMockThreadKey(threadId))
+  );
+  const usedFolders = new Set(Object.values(contexts).map((context) => getContextFolder(context)));
+  const folderOrder = (state.folderOrder || state.fileOrder || []).filter((folder) => usedFolders.has(getDirectoryFromPath(folder)));
+  return { ...state, contexts, conversations, folderOrder, fileOrder: folderOrder };
+}
+
 export const useThreadStore = defineStore('thread', () => {
-  const storedState = readStoredThreadState();
-  const defaultContexts = clone(THREAD_CONTEXTS);
-  const contexts = reactive({ ...defaultContexts, ...(storedState.contexts || {}) });
+  const storedState = sanitizeStoredState(readStoredThreadState());
+  const contexts = reactive({ ...(storedState.contexts || {}) });
   Object.values(contexts).forEach((context) => {
     context.folder = getContextFolder(context);
     context.sessionRoleId = context.sessionRoleId || getThreadRoleId(context.id);
-    context.roleStatus = context.roleStatus || (defaultContexts[context.id] ? '已编排' : '未编排');
+    context.roleStatus = context.roleStatus || '未编排';
   });
 
-  const defaultFolderOrder = [...new Set(Object.values(defaultContexts).map((context) => getContextFolder(context)))];
   const storedFolderOrder = Array.isArray(storedState.folderOrder) ? storedState.folderOrder : [];
   const storedFileOrder = Array.isArray(storedState.fileOrder) ? storedState.fileOrder.map(getDirectoryFromPath) : [];
   const allContextFolders = [...new Set(Object.values(contexts).map((context) => getContextFolder(context)))];
-  const folderOrder = ref([...new Set([...storedFolderOrder, ...storedFileOrder, ...defaultFolderOrder, ...allContextFolders])]);
-  const currentThreadId = ref(DEFAULT_THREAD_ID);
+  const folderOrder = ref([...new Set([...storedFolderOrder, ...storedFileOrder, ...allContextFolders])]);
+  const currentThreadId = ref(EMPTY_THREAD_ID);
   const backendReady = ref(false);
   const backendError = ref('');
   const conversations = reactive({
-    ...Object.fromEntries(Object.values(defaultContexts).map((context) => [context.id, createConversationForContext(context)])),
     ...(storedState.conversations || {})
   });
   Object.values(contexts).forEach((context) => {
@@ -153,11 +152,15 @@ export const useThreadStore = defineStore('thread', () => {
   }
 
   function isValidThread(threadId) {
-    return Boolean(threadId && contexts[threadId]);
+    return Boolean(threadId && !isMockThreadKey(threadId) && contexts[threadId]);
   }
 
   function getContext(threadId) {
-    return contexts[threadId] || contexts[DEFAULT_THREAD_ID];
+    return contexts[threadId] || firstContext() || EMPTY_CONTEXT;
+  }
+
+  function firstContext() {
+    return Object.values(contexts).find((context) => !isMockThreadKey(context.id)) || null;
   }
 
   function getThreadIdsForFolder(folder) {
@@ -179,7 +182,7 @@ export const useThreadStore = defineStore('thread', () => {
   }
 
   function resolveThreadId(queryThreadId = null) {
-    return getPersistedThreadId(queryThreadId) || DEFAULT_THREAD_ID;
+    return getPersistedThreadId(queryThreadId) || firstContext()?.id || EMPTY_THREAD_ID;
   }
 
   function setActiveThread(threadId, persist = true) {
@@ -235,12 +238,15 @@ export const useThreadStore = defineStore('thread', () => {
   function applyBackendBootstrap(data) {
     if (!data?.threads) return false;
     Object.entries(data.threads).forEach(([threadKey, thread]) => {
+      const clientKey = backendValue(thread, 'client_key', 'clientKey', threadKey);
+      if (isMockThreadKey(clientKey)) return;
       const context = applyBackendThread(thread, data.recent_messages?.[threadKey] || [], threadKey);
       if (!conversations[context.id].length && !context.backendId) conversations[context.id] = createConversationForContext(context);
     });
     const folders = (data.folders || []).map((folder) => folder.name || folder.path).filter(Boolean);
     if (folders.length) {
-      folderOrder.value = [...new Set([...folders, ...folderOrder.value])];
+      const foldersWithThreads = folders.filter((folder) => getThreadIdsForFolder(folder).length);
+      folderOrder.value = [...new Set([...foldersWithThreads, ...folderOrder.value])];
     }
     backendReady.value = true;
     persistState();
@@ -340,25 +346,13 @@ export const useThreadStore = defineStore('thread', () => {
     const context = createThreadContext({
       folder,
       file: folder,
-      label: 'primary-agent',
-      summary: '新关联目录已加入，等待补充任务目标',
-      roles: ['primary', 'review'],
+      label: '会话 1',
+      summary: '新的独立会话，等待输入任务',
+      roles: ['primary', 'review', 'test'],
       focusRole: 'primary',
       roleStatus: '未编排'
     });
-    conversations[context.id] = [
-      {
-        kind: 'agent',
-        title: '主助手',
-        text: `已关联 ${folder} 目录。你可以直接在输入框里描述要分析、修改或验证的目标。`
-      },
-      {
-        kind: 'agent',
-        id: `suggestion-${context.id}`,
-        title: 'review-agent',
-        text: '我会先把这个目录作为当前上下文，不会影响其他目录下已有会话的消息记录。'
-      }
-    ];
+    conversations[context.id] = [];
     persistState();
     return setActiveThread(context.id, true);
   }
