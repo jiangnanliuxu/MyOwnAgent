@@ -398,6 +398,28 @@ body::before {
   border-color: rgba(125, 183, 164, 0.42);
 }
 
+.backend-session-pill {
+  cursor: pointer;
+}
+
+.backend-session-pill.is-connected {
+  background: rgba(125, 183, 164, 0.2);
+  border-color: rgba(125, 183, 164, 0.5);
+}
+
+.backend-session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(216, 111, 92, 0.82);
+  box-shadow: 0 0 0 3px rgba(216, 111, 92, 0.12);
+}
+
+.backend-session-pill.is-connected .backend-session-dot {
+  background: rgba(87, 146, 121, 0.9);
+  box-shadow: 0 0 0 3px rgba(87, 146, 121, 0.14);
+}
+
 .conversation-surface {
   display: flex;
   flex-direction: column;

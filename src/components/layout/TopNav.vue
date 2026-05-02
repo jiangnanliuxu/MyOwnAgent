@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import ClockWidget from './ClockWidget.vue';
+import BackendSessionControl from './BackendSessionControl.vue';
 
 const props = defineProps({
   active: {
@@ -52,6 +53,7 @@ const robotHref = computed(() =>
       <svg viewBox="0 0 24 24" aria-hidden="true" v-html="icons.integration"></svg>
       <span>能力管理</span>
     </a>
+    <BackendSessionControl />
     <ClockWidget />
   </div>
 </template>

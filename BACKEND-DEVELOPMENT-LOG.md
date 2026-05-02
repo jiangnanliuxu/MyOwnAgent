@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B18 | In Progress | 无 | Planning Agent 开始前端认证与后端模式入口规划 |
+| B19 | In Progress | 无 | Planning Agent 开始本地全链路联调脚本规划 |
 
 ## 阶段拆分
 
@@ -50,7 +50,8 @@
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [x] | [x] | 无 | 分页面逐步切换 |
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [x] | [x] | 无 | 生产前收口完成 |
 | B17 | Role/Skill/MCP 前端接入 | `roles`、`skills`、`mcp` API adapter，Pinia store 后端可选读写，能力页联调 | [x] | [x] | [x] | 无 | 保持 mock fallback |
-| B18 | 前端认证与后端模式入口 | 登录/注册入口、token/projectId 持久化、后端模式状态提示、登出 | [x] | [ ] | [ ] | In Progress | 解决手动 localStorage 配置 |
+| B18 | 前端认证与后端模式入口 | 登录/注册入口、token/projectId 持久化、后端模式状态提示、登出 | [x] | [x] | [x] | 无 | 解决手动 localStorage 配置 |
+| B19 | 本地全链路联调脚本 | Docker infra、Spring dev、前端后端模式、认证/bootstrap/RAG smoke 检查 | [x] | [ ] | [ ] | In Progress | 降低手动验收成本 |
 
 ## 阶段记录模板
 
@@ -1093,6 +1094,54 @@
   - [x] 阶段范围已确认：新增前端登录/注册入口，调用 Spring `/api/v1/auth/login`、`/api/v1/auth/register`、`/api/v1/auth/me`，写入 `agentDesk.api.accessToken` 和 `agentDesk.api.projectId`，并提供后端模式状态提示和登出。
   - [x] 验收标准已确认：未配置后端 URL 时不显示破坏性登录流程；配置后端后可从 UI 建立 API session；登出会清理 token/projectId；现有 mock 页面和 E2E 不回归。
   - [x] 依赖和风险已记录：依赖 B03 Auth API 和 B15/B17 `apiSession`；本阶段不保存真实密码到 localStorage，不在日志中输出 token。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B18 无数据库迁移；新增前端认证 API、后端会话 store 和顶部导航入口。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `src/api/auth.js`
+    - `src/api/session.js`
+    - `src/stores/backendSession.js`
+    - `src/components/layout/BackendSessionControl.vue`
+    - `src/components/layout/TopNav.vue`
+    - `src/assets/global.css`
+    - `__tests__/backend-session.test.js`
+    - `tests/main-workspace.spec.js`
+    - `.env.example`
+    - `AGENTS.md`
+    - `BACKEND-DEVELOPMENT-LOG.md`
+  - 自测命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
+    - `cd backend-spring && ./gradlew clean test && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest && .venv/bin/python -m compileall app tests`
+  - 测试结果：
+    - Vitest：5 files / 12 tests passed，覆盖后端 URL 保存、登录 session 持久化、登出清理。
+    - Vite build：通过。
+    - Playwright：102 passed，新增 Mock 模式后端入口配置弹窗回归。
+    - Spring 后端：`clean test` 和 `bootJar` 均通过。
+    - Python Agent：8 passed，`compileall app tests` 通过；本机 Python 3.9 + LibreSSL 触发 urllib3 兼容 warning，不影响测试结果。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 无。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：自动进入 B19。
+
+### B19 - 本地全链路联调脚本
+
+- Planning Agent:
+  - [x] 阶段范围已确认：提供可复用本地 smoke 验收脚本或命令入口，串联 Docker infra、Spring dev profile、前端后端模式、认证、bootstrap、RAG 上传/查询基础检查。
+  - [x] 验收标准已确认：脚本不写真实密钥；失败时输出明确步骤；不依赖用户手动复制 token；默认不破坏现有 mock 前端测试。
+  - [x] 依赖和风险已记录：依赖 B02 Docker infra、B03 Auth、B04 Bootstrap、B11/B12 RAG 和 B18 前端会话入口；如本机端口被占用，脚本需要可诊断而不是静默失败。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

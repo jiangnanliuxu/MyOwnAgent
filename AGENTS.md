@@ -26,11 +26,11 @@
 - `BACKEND-ARCHITECTURE.md`：后端架构主文档，包含 Spring AI + Python 方案、REST/SSE/API 契约、RAG、MCP、Skill、数据模型、部署和前端接入细节。
 - `BACKEND-DEVELOPMENT-LOG.md`：后端分段开发日志，记录 Planning/Development/Testing 三个子 Agent 的阶段进度、开发勾选、测试勾选和 bug 修复闭环。
 - `src/data/index.js`：从原 `script.js` 提取的 mock 数据常量。
-- `src/stores/`：Pinia stores，包含 thread、role、skill、mcp；未配置后端时使用 mock，配置后端会话后走 Spring API。
-- `src/api/`：封装后端 API adapter，包括 `http.js`、`bootstrap.js`、`threads.js`、`roles.js`、`skills.js`、`mcp.js`、`rag.js`、`settings.js`。
+- `src/stores/`：Pinia stores，包含 backendSession、thread、role、skill、mcp；未配置后端时使用 mock，配置后端会话后走 Spring API。
+- `src/api/`：封装后端 API adapter，包括 `http.js`、`auth.js`、`bootstrap.js`、`threads.js`、`roles.js`、`skills.js`、`mcp.js`、`rag.js`、`settings.js`。
 - `src/services/`：封装浏览器侧业务适配，当前包含 `sseClient.js`。
 - `src/composables/`：modal、toast、clock、目录滚动、localStorage 等共享逻辑。
-- `src/components/layout/`：顶部导航、时钟等布局组件。
+- `src/components/layout/`：顶部导航、后端会话入口、时钟等布局组件。
 - `src/components/shared/`：全局 modal host 与 toast。
 - `src/views/`：4 个页面 view。
 - `__tests__/`：Vitest store 单元测试。
@@ -85,6 +85,7 @@
 ## 核心数据与交互模型
 
 - `src/data/index.js` 是 mock 数据来源，包含 `ROLE_LIBRARY`、`THREAD_CONTEXTS`、`SKILL_CATALOG`、`MCP_ENDPOINTS`、`HEALTH_ITEMS` 等。
+- `useBackendSessionStore` 管理后端地址、登录/注册、token/projectId 持久化和登出；密码只用于当次请求，不进入 localStorage。
 - `useThreadStore` 管理当前线程、关联目录列表、目录下会话、每条会话的独立消息流、query/localStorage/default 优先级。
 - `useThreadStore` 使用 `agentDesk.activeThreadId` 持久化当前线程，并用 `agentDesk.threadState.v1` 持久化新增目录、动态会话和会话消息；旧的文件路径会自动折算为目录，兼容历史 localStorage。
 - `useRoleStore` 管理角色库、当前角色、职责、压缩强度和角色配置更新，并用 `agentDesk.roleState.v1` 持久化动态会话角色修改。
@@ -185,8 +186,8 @@ http://localhost:4173/
 截至 2026-05-02，已验证：
 
 - `npm run build` 通过。
-- `npm run test:unit`：4 个 Vitest 文件、10 个 store 用例通过。
-- `npm run test:e2e`：101 个 Playwright 用例通过。
+- `npm run test:unit`：5 个 Vitest 文件、12 个 store 用例通过。
+- `npm run test:e2e`：102 个 Playwright 用例通过。
 - `cd backend-spring && ./gradlew clean test`：7 个 Spring Boot 测试通过。
 - `cd backend-spring && ./gradlew bootJar` 通过。
 

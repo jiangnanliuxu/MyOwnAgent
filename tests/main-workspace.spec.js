@@ -70,6 +70,14 @@ test.describe('/ — 主工作台', () => {
     await expect(page.locator('#composer-context-chip')).toContainText('当前工作：Testing Agent');
   });
 
+  test('后端模式入口默认停留在 Mock 配置状态', async ({ page }) => {
+    const control = page.locator('#backend-session-control');
+    await expect(control).toContainText('Mock 模式');
+    await control.click();
+    await expect(page.locator('#modal-title')).toHaveText('后端地址');
+    await expect(page.locator('#backend-base-url-input')).toHaveValue('http://localhost:18080');
+  });
+
   test('包含活跃线程的 accordion 自动展开', async ({ page }) => {
     const firstAccordion = page.locator('.file-accordion').first();
     await expect(firstAccordion).toHaveAttribute('open', '');
