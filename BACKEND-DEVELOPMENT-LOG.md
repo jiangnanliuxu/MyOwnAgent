@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B06 | In Progress | 无 | Planning Agent 开始 Role 编排阶段 |
+| B07 | In Progress | 无 | Planning Agent 开始 Skill 管理阶段 |
 
 ## 阶段拆分
 
@@ -38,8 +38,8 @@
 | B03 | 认证与用户偏好 | Auth、JWT、`/auth/me`、`/me/preferences`、active thread 规则 | [x] | [x] | [x] | 无 | 保持 query/localStorage/default 兼容 |
 | B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [x] | [x] | [x] | 无 | 前端可先只读接入 |
 | B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [x] | [x] | [x] | 无 | 暂不启用真实 Agent |
-| B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [x] | [ ] | [ ] | In Progress | 机器人设置页核心 |
-| B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [ ] | [ ] | [ ] | 待开始 | Skill 不是 MCP |
+| B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [x] | [x] | [x] | 无 | 机器人设置页核心 |
+| B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [ ] | [ ] | In Progress | Skill 不是 MCP |
 | B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [ ] | [ ] | [ ] | 待开始 | Python 不能绕过 Spring 调工具 |
 | B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [ ] | [ ] | [ ] | 待开始 | 先接单 Agent mock worker |
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [ ] | [ ] | [ ] | 待开始 | 不直接写核心业务表 |
@@ -447,6 +447,62 @@
   - [x] 阶段范围已确认：实现项目角色列表、角色详情/更新、thread_roles 同步、folder sync-roles，以及 `source_thread_id` 角色更新回写 thread `label/summary`。
   - [x] 验收标准已确认：接口需要认证和 project/thread/folder 归属校验；角色配置 JSONB 采用合并更新；同步逻辑不启动 Agent。
   - [x] 依赖和风险已记录：依赖 B04/B05 的 seed、folder/thread 查询和 session role key；B06 不实现 Skill、MCP 或 SSE。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B06 无新增 Flyway 迁移，复用 `roles`、`threads`、`thread_roles`、`folders` 表。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/role/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/role/RoleControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `GET /api/v1/projects/:id/roles?include_thread_roles=true`
+    - `GET /api/v1/roles/:id`
+    - `PATCH /api/v1/roles/:id`
+    - `POST /api/v1/folders/:id/sync-roles`
+    - `GET /api/v1/threads/:id`
+    - `GET /api/v1/roles/:id` with another user's token
+  - 测试结果：
+    - B06 定向 `RoleControllerTest`：通过
+    - B05+B06 组合回归：通过
+    - 默认 profile `./gradlew clean test`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - HTTP 冒烟：角色列表、角色详情、角色更新、source thread 回写、sync-roles、跨用户 403 均通过
+    - `config.api_key` 不落库响应，更新后只返回 `secret_ref`
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 角色列表和 sync-roles 测试改为内容匹配，不依赖 PostgreSQL 与内存实现的返回排序。
+    - default profile 的角色 source thread 同步在 role 模块状态中验证；dev profile HTTP 冒烟额外验证 `GET /threads/:id` 已回写。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B07 - Skill 管理
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现项目 Skill 列表、Skill 详情/更新、启停 toggle、Prompt mount policy 保存，以及项目级 sync-policy。
+  - [x] 验收标准已确认：接口需要认证和 project 归属校验；Skill 仍是 Prompt/策略/工具组合包，不混同 MCP endpoint。
+  - [x] 依赖和风险已记录：依赖 B04 seed 的 `skills` 数据；B07 不执行真实 Python Skill Runner，不调用 MCP 工具。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
