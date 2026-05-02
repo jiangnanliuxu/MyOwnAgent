@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B16 | In Progress | 无 | Planning Agent 开始观测、安全与部署阶段 |
+| 全部阶段 | Completed | 无 | B16 已完成，等待下一轮需求规划 |
 
 ## 阶段拆分
 
@@ -48,7 +48,7 @@
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [x] | [x] | 无 | 依赖 B09/B10 |
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [x] | [x] | 无 | 对应 `/settings` |
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [x] | [x] | 无 | 分页面逐步切换 |
-| B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [ ] | [ ] | In Progress | 生产前收口 |
+| B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [x] | [x] | 无 | 生产前收口完成 |
 
 ## 阶段记录模板
 
@@ -991,21 +991,44 @@
   - [x] 验收标准已确认：不写真实密钥；默认开发体验不破坏；后端、Python、前端测试命令形成可复用发布检查；Git 推送后工作区保持干净。
   - [x] 依赖和风险已记录：依赖 B01-B15；真实生产部署仍需外部域名、证书、密钥托管和 CI 环境变量，当前阶段先做本仓库可验证闭环。
 - Development Agent:
-  - [ ] 代码实现完成
-  - [ ] 数据库迁移/配置更新完成
-  - [ ] 自测命令已运行
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：无新增数据库迁移；补充前端、Spring 后端、Python Agent 环境样例和 CI/部署文档。
+  - [x] 自测命令已运行
   - 变更文件：
+    - `docs/ci-workflow.example.yml`
+    - `.env.example`
+    - `backend-spring/.env.example`
+    - `agent-python/.env.example`
+    - `docs/DEPLOYMENT.md`
+    - `README.md`
+    - `docker/README.md`
+    - `BACKEND-DEVELOPMENT-LOG.md`
   - 自测命令：
+    - `git diff --check`
+    - `docker compose -f docker/docker-compose.yml config >/tmp/agentdesk-compose-config.out`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+    - `cd agent-python && .venv/bin/python -m pytest && .venv/bin/python -m compileall app tests`
 - Testing Agent:
-  - [ ] 单元测试通过
-  - [ ] 集成测试通过
-  - [ ] 回归测试通过
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
   - 测试命令：
+    - `cd backend-spring && ./gradlew clean test && ./gradlew bootJar`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
   - 测试结果：
+    - Compose 配置解析通过。
+    - GitHub Actions workflow 已作为 `docs/ci-workflow.example.yml` 示例保留；当前 OAuth 凭据缺少 `workflow` scope，不能直接推送 `.github/workflows/ci.yml`。
+    - Vitest：4 files / 7 tests passed。
+    - Vite build：通过。
+    - Spring 后端：`clean test` 和 `bootJar` 均通过。
+    - Python Agent：8 passed，`compileall app tests` 通过。
+    - Playwright：101 passed。
 - Bugs:
-  - [ ] 无阻塞 bug
+  - [x] 无阻塞 bug
   - 修复记录：
+    - 无。
 - Gate:
-  - [ ] Dev Done
-  - [ ] Test Done
-  - [ ] Planning Agent 已批准进入下一阶段
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：当前已无预设 B17，下一阶段需按新需求规划后追加。

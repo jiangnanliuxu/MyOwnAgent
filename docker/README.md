@@ -17,6 +17,13 @@ To start only the required long-running services:
 docker compose -f docker/docker-compose.yml up -d postgres redis minio
 ```
 
+To include the Python Agent skeleton:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d postgres redis minio minio-init agent-python
+curl -s -H 'X-Internal-Token: local-dev-internal-token' http://localhost:8001/internal/health/workers
+```
+
 ## Default endpoints
 
 | Service | Endpoint | Credentials |
@@ -25,6 +32,7 @@ docker compose -f docker/docker-compose.yml up -d postgres redis minio
 | Redis | `localhost:6379` | no password in local dev |
 | MinIO API | `http://localhost:9000` | `agentdesk` / `agentdesk_dev_minio_password` |
 | MinIO Console | `http://localhost:9001` | `agentdesk` / `agentdesk_dev_minio_password` |
+| Python Agent | `http://localhost:8001` | `X-Internal-Token: local-dev-internal-token` |
 
 ## Stop
 

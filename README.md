@@ -95,6 +95,8 @@ cd backend-spring
 ./gradlew bootJar
 ```
 
+CI 示例位于 `docs/ci-workflow.example.yml`，按前端、Spring 后端、Python Agent 三个 job 验证。发布前检查和部署注意事项见 `docs/DEPLOYMENT.md`。
+
 ## 开发流程
 
 后端按 `BACKEND-DEVELOPMENT-LOG.md` 分段推进。每一阶段必须经过：
