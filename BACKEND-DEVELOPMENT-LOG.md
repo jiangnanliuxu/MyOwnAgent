@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B11 | In Progress | 无 | Planning Agent 开始 RAG 上传索引阶段 |
+| B12 | In Progress | 无 | Planning Agent 开始 RAG 检索回答阶段 |
 
 ## 阶段拆分
 
@@ -43,8 +43,8 @@
 | B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [x] | [x] | 无 | Python 不能绕过 Spring 调工具 |
 | B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [x] | [x] | 无 | 先接单 Agent mock worker |
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [x] | [x] | 无 | 不直接写核心业务表 |
-| B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [ ] | [ ] | In Progress | 输入框下方文件按钮是入口 |
-| B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [ ] | [ ] | [ ] | 待开始 | 默认 scope=thread |
+| B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [x] | [x] | 无 | 输入框下方文件按钮是入口 |
+| B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [ ] | [ ] | In Progress | 默认 scope=thread |
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [ ] | [ ] | [ ] | 待开始 | 依赖 B09/B10 |
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [ ] | [ ] | [ ] | 待开始 | 对应 `/settings` |
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [ ] | [ ] | [ ] | 待开始 | 分页面逐步切换 |
@@ -738,6 +738,70 @@
   - [x] 阶段范围已确认：实现前端文件上传入口对应的后端 RAG 上传索引基础能力，包括 Spring 上传 API、MinIO 原文存储、`rag_documents` / `rag_index_jobs` 状态流转、Redis `rag.index.jobs` 事件和 Python 索引 worker skeleton。
   - [x] 验收标准已确认：浏览器仍只访问 Spring `/api/v1/threads/:id/rag/uploads`；Python 不直接写核心业务表；B11 只完成上传入队和索引任务骨架，不要求真实 embedding/Milvus 写入。
   - [x] 依赖和风险已记录：依赖 B02 MinIO/Redis、B03 认证、B05 thread 权限和 B10 Python 服务；Milvus/Embedding Gateway 的真实写入在 B12 前后继续完善。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B11 复用 V1 已存在 `rag_documents`、`rag_index_jobs`、`rag_chunks` 表；新增 MinIO secret-key 配置和 Python RAG index stream 配置。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/build.gradle`
+    - `backend-spring/src/main/java/com/agentdesk/backend/config/InfrastructureProperties.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/rag/**`
+    - `backend-spring/src/main/resources/application.yml`
+    - `backend-spring/src/main/resources/application-dev.yml`
+    - `backend-spring/src/test/java/com/agentdesk/backend/config/InfrastructurePropertiesTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/rag/RagControllerTest.java`
+    - `agent-python/app/config.py`
+    - `agent-python/app/main.py`
+    - `agent-python/app/models.py`
+    - `agent-python/app/worker.py`
+    - `agent-python/app/rag/indexer.py`
+    - `agent-python/tests/test_internal_api.py`
+    - `agent-python/README.md`
+    - `docker/docker-compose.yml`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest --tests com.agentdesk.backend.config.InfrastructurePropertiesTest`
+    - `cd agent-python && .venv/bin/python -m pytest`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest --tests com.agentdesk.backend.config.InfrastructurePropertiesTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest --rerun-tasks`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.rag.RagControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest`
+    - `cd agent-python && .venv/bin/python -m compileall app tests`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `POST /api/v1/threads/:id/rag/uploads` multipart HTTP 冒烟
+    - `GET /api/v1/threads/:id/rag/documents?limit=5` HTTP 冒烟
+    - `redis-cli XLEN rag.index.jobs`
+  - 测试结果：
+    - Spring B11 定向测试：通过
+    - Spring dev profile RAG 测试：通过，MinIO 返回 `s3://agent-desk-dev/...`，PostgreSQL 写入 `rag_documents` 和 `rag_index_jobs`
+    - Spring dev 组合回归：`RagControllerTest` + `WorkspaceControllerTest` 通过
+    - Spring 默认 profile `./gradlew clean test`：通过
+    - Spring `./gradlew bootJar`：通过
+    - Python Agent 测试：6 passed，含 RAG index job contract
+    - HTTP 冒烟：上传 `agentdesk-b11-smoke.md` 返回 `document.status=uploaded`、`job.status=queued`、`stream=rag.index.jobs`，列表接口返回已上传文档，Redis `rag.index.jobs` 长度为 1
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - dev profile 下真实 MinIO 返回 `s3://`，测试断言从仅允许 `memory://` 调整为允许 `memory://` 或 `s3://`。
+    - 默认全量回归曾与 dev Gradle 回归并行执行导致同一 `build/` 目录竞争，改为顺序执行后通过；后续同一 Gradle 工程测试不要并行跑。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B12 - RAG 检索回答
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现消息发送时的 RAG 检索链路骨架，包括 query embedding 占位、按 `project_id/thread_id` 范围检索、召回片段注入 agent prompt、SSE `rag_retrieval` 事件和回答上下文记录。
+  - [x] 验收标准已确认：默认 `scope=thread`，不得跨项目召回；未索引或无召回时消息流程保持可用；真实 Milvus/Embedding 可先用接口边界和可替换 adapter 占位。
+  - [x] 依赖和风险已记录：依赖 B09 SSE、B10 Python Agent skeleton 和 B11 上传索引；真实向量库落地时需补 Milvus collection 初始化和 embedding key 的 `secret_ref` 管理。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

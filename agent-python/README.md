@@ -24,6 +24,7 @@ Important defaults:
 
 - `AGENT_INTERNAL_TOKEN=local-dev-internal-token`
 - `AGENT_REDIS_URL=redis://localhost:6379/0`
+- `RAG_INDEX_JOBS_STREAM=rag.index.jobs`
 - `SPRING_TOOL_GATEWAY_URL=http://localhost:18080/internal/tools/invoke`
 
 Internal API:

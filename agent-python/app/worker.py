@@ -17,6 +17,8 @@ class AgentWorker:
     async def run_once(self) -> None:
         # B10 skeleton: prove Redis Streams wiring without executing LangGraph.
         await self.redis.xgroup_create(settings.agent_jobs_stream, "agent-workers", id="0", mkstream=True)
+        # B11 skeleton: the RAG worker reads this stream in later stages to parse, chunk, embed, and upsert.
+        await self.redis.xgroup_create(settings.rag_index_jobs_stream, "rag-index-workers", id="0", mkstream=True)
 
 
 async def main() -> None:
@@ -28,4 +30,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

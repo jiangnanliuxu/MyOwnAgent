@@ -78,6 +78,7 @@ services:
       AGENT_INTERNAL_TOKEN: local-dev-internal-token
       AGENT_REDIS_URL: redis://redis:6379/0
       AGENT_JOBS_STREAM: agent.jobs
+      RAG_INDEX_JOBS_STREAM: rag.index.jobs
       SPRING_TOOL_GATEWAY_URL: http://host.docker.internal:18080/internal/tools/invoke
     ports:
       - "8001:8001"

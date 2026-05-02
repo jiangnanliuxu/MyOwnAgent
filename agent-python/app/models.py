@@ -53,6 +53,22 @@ class WorkerHealth(BaseModel):
     status: str = "ok"
     service: str = "agent-python"
     redis_stream: str
+    rag_index_stream: str = "rag.index.jobs"
     workers: List[Dict[str, Any]]
     checked_at: datetime = Field(default_factory=now_utc)
 
+
+class RagIndexJob(BaseModel):
+    job_id: str
+    document_id: str
+    project_id: str
+    thread_id: str
+    folder_id: Optional[str] = None
+    storage_uri: str
+    source_name: str
+    source_path: Optional[str] = None
+    mime_type: str
+    size_bytes: int = Field(ge=0)
+    sha256: str
+    scope: str = "thread"
+    milvus_collection: str = "agent_desk_chunks"

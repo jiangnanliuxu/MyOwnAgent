@@ -13,11 +13,17 @@ app = FastAPI(title="Agent Python", version="0.1.0")
 def workers_health(_: None = Depends(require_internal_token)) -> WorkerHealth:
     return WorkerHealth(
         redis_stream=settings.agent_jobs_stream,
+        rag_index_stream=settings.rag_index_jobs_stream,
         workers=[
             {
                 "name": "agent-worker-skeleton",
                 "status": "idle",
                 "mode": "b10-skeleton",
+            },
+            {
+                "name": "rag-index-worker-skeleton",
+                "status": "idle",
+                "mode": "b11-skeleton",
             }
         ],
     )

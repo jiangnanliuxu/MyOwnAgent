@@ -44,6 +44,7 @@ agent-desk:
       endpoint: ${AGENT_DESK_MINIO_ENDPOINT:http://localhost:9000}
       bucket: ${AGENT_DESK_MINIO_BUCKET:agent-desk-dev}
       access-key: ${AGENT_DESK_MINIO_ACCESS_KEY:agentdesk}
+      secret-key: ${AGENT_DESK_MINIO_SECRET_KEY:agentdesk_dev_minio_password}
     milvus:
       enabled: ${AGENT_DESK_MILVUS_ENABLED:false}
       endpoint: ${AGENT_DESK_MILVUS_ENDPOINT:http://localhost:19530}

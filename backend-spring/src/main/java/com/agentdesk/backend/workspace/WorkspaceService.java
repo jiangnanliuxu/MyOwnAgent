@@ -80,6 +80,14 @@ public class WorkspaceService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Thread is not available.")));
     }
 
+    public ThreadContext resolveThreadContext(AuthenticatedUser user, UUID threadId) {
+        UUID projectId = projectIdForThread(threadId);
+        assertProjectAccess(user, projectId);
+        BootstrapResponse.ThreadView thread = workspaceRepository.findThread(threadId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Thread is not available."));
+        return new ThreadContext(projectId, thread.id(), thread.folderId(), thread.clientKey(), thread.folder(), thread.label());
+    }
+
     public WorkspaceDtos.ThreadResponse patchThread(
             AuthenticatedUser user,
             UUID threadId,
@@ -148,5 +156,15 @@ public class WorkspaceService {
     private UUID projectIdForThread(UUID threadId) {
         return workspaceRepository.findProjectIdByThread(threadId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Thread is not available."));
+    }
+
+    public record ThreadContext(
+            UUID projectId,
+            UUID threadId,
+            UUID folderId,
+            String threadClientKey,
+            String folder,
+            String label
+    ) {
     }
 }

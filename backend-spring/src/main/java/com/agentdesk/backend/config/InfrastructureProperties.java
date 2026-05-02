@@ -27,7 +27,8 @@ public record InfrastructureProperties(
     public record Minio(
             String endpoint,
             String bucket,
-            String accessKey
+            String accessKey,
+            String secretKey
     ) {
     }
 

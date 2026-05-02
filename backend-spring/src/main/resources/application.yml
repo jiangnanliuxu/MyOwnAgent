@@ -50,6 +50,8 @@ agent-desk:
     minio:
       endpoint: http://localhost:9000
       bucket: agent-desk-dev
+      access-key: agentdesk
+      secret-key: agentdesk_dev_minio_password
     milvus:
       enabled: false
       endpoint: http://localhost:19530

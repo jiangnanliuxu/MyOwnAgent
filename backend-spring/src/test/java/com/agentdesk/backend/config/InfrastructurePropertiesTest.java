@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "agent-desk.infrastructure.minio.endpoint=http://minio.internal:9000",
         "agent-desk.infrastructure.minio.bucket=agent-desk-test",
         "agent-desk.infrastructure.minio.access-key=minio-access",
+        "agent-desk.infrastructure.minio.secret-key=minio-secret",
         "agent-desk.infrastructure.milvus.enabled=false",
         "agent-desk.infrastructure.milvus.endpoint=http://milvus.internal:19530"
 })
@@ -35,6 +36,8 @@ class InfrastructurePropertiesTest {
         assertThat(properties.redis().port()).isEqualTo(16379);
         assertThat(properties.minio().endpoint()).isEqualTo("http://minio.internal:9000");
         assertThat(properties.minio().bucket()).isEqualTo("agent-desk-test");
+        assertThat(properties.minio().accessKey()).isEqualTo("minio-access");
+        assertThat(properties.minio().secretKey()).isEqualTo("minio-secret");
         assertThat(properties.milvus().enabled()).isFalse();
         assertThat(properties.milvus().endpoint()).isEqualTo("http://milvus.internal:19530");
     }
