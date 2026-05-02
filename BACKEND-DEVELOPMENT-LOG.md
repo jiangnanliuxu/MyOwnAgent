@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B09 | In Progress | 无 | Planning Agent 开始 SSE 与 Agent Job 阶段 |
+| B10 | In Progress | 无 | Planning Agent 开始 Python Agent 基础服务阶段 |
 
 ## 阶段拆分
 
@@ -41,8 +41,8 @@
 | B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [x] | [x] | [x] | 无 | 机器人设置页核心 |
 | B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [x] | [x] | 无 | Skill 不是 MCP |
 | B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [x] | [x] | 无 | Python 不能绕过 Spring 调工具 |
-| B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [ ] | [ ] | In Progress | 先接单 Agent mock worker |
-| B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [ ] | [ ] | [ ] | 待开始 | 不直接写核心业务表 |
+| B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [x] | [x] | 无 | 先接单 Agent mock worker |
+| B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [ ] | [ ] | In Progress | 不直接写核心业务表 |
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [ ] | [ ] | [ ] | 待开始 | 输入框下方文件按钮是入口 |
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [ ] | [ ] | [ ] | 待开始 | 默认 scope=thread |
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [ ] | [ ] | [ ] | 待开始 | 依赖 B09/B10 |
@@ -617,6 +617,65 @@
   - [x] 阶段范围已确认：实现消息发送后的 agent job 入队占位、`agent.events:{threadId}` 事件模型、`/threads/:id/stream` SSE、断点续传和 mock worker 输出。
   - [x] 验收标准已确认：前端可以连接 SSE 看到 pending agent 消息转为 completed；暂不接真实 Python Agent。
   - [x] 依赖和风险已记录：依赖 B05 message placeholder 和 B08 task log；B09 先用 Spring 内部 mock worker，后续 B10 再接 Python。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B09 无新增 Flyway 迁移，复用 `messages` 表和内存 SSE event buffer。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentEvent.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentEventBus.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentJobService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceController.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/InMemoryWorkspaceRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/JdbcWorkspaceRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/workspace/WorkspaceControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `POST /api/v1/threads/:id/messages`
+    - `GET /api/v1/threads/:id/messages?limit=20`
+    - `GET /api/v1/threads/:id/stream?last_event_id=0&replay_only=true`
+  - 测试结果：
+    - B09 定向 `WorkspaceControllerTest`：通过
+    - B05+B06+B07+B08+B09 组合回归：通过
+    - 默认 profile `./gradlew clean test`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - HTTP/SSE 冒烟：发送消息后 mock agent job 生成，pending agent 占位转 completed，SSE 回放包含 `message_completed` 和 Mock Agent 内容
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - Spring MVC async dispatch 二次鉴权会拦截 SSE `asyncDispatch`，已在 `SecurityConfig` 放行 `DispatcherType.ASYNC`，入口请求仍由 `/api/v1/threads/**` 认证保护。
+    - 幂等重复发送时 agent placeholder 可能已完成，测试不再要求重复响应仍保持 pending，而改查最终消息状态。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B10 - Python Agent 基础服务
+
+- Planning Agent:
+  - [x] 阶段范围已确认：创建 `agent-python` FastAPI 服务骨架、内部健康接口、Redis worker skeleton、LangGraph 依赖占位和 Spring 调用契约。
+  - [x] 验收标准已确认：Python 不直接写核心业务表；只提供 internal API、worker skeleton 和本地测试，真实编排后续阶段扩展。
+  - [x] 依赖和风险已记录：依赖 B09 的消息/job/SSE 事件模型；B10 不替换 Spring mock worker。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

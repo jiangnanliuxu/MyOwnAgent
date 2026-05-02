@@ -14,11 +14,15 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.blankOrNullString;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -115,7 +119,18 @@ class WorkspaceControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[2].client_message_id").value("msg-b05-1"))
-                .andExpect(jsonPath("$.data.items[2].role").value("user"));
+                .andExpect(jsonPath("$.data.items[2].role").value("user"))
+                .andExpect(jsonPath("$.data.items[3].client_message_id").value("msg-b05-1:agent"))
+                .andExpect(jsonPath("$.data.items[3].status").value("completed"));
+
+        MvcResult stream = mockMvc.perform(get("/api/v1/threads/{threadId}/stream?last_event_id=0&replay_only=true", threadId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        mockMvc.perform(asyncDispatch(stream))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("message_completed")))
+                .andExpect(content().string(containsString("Mock Agent")));
 
         mockMvc.perform(get("/api/v1/folders/{folderId}/threads", srcAuthFolderId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
@@ -161,7 +176,6 @@ class WorkspaceControllerTest {
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.data.message.client_message_id").value(clientMessageId))
                 .andExpect(jsonPath("$.data.message.role").value("user"))
-                .andExpect(jsonPath("$.data.agent_placeholder.status").value("pending"))
                 .andExpect(jsonPath("$.data.status").value("processing"))
                 .andReturn();
         return read(result);

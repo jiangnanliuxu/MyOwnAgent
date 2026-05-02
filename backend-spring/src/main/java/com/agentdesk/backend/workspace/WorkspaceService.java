@@ -7,6 +7,7 @@ import com.agentdesk.backend.common.error.ErrorCode;
 import com.agentdesk.backend.security.AuthenticatedUser;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,10 +20,19 @@ public class WorkspaceService {
 
     private final AuthRepository authRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final AgentJobService agentJobService;
+    private final AgentEventBus agentEventBus;
 
-    public WorkspaceService(AuthRepository authRepository, WorkspaceRepository workspaceRepository) {
+    public WorkspaceService(
+            AuthRepository authRepository,
+            WorkspaceRepository workspaceRepository,
+            AgentJobService agentJobService,
+            AgentEventBus agentEventBus
+    ) {
         this.authRepository = authRepository;
         this.workspaceRepository = workspaceRepository;
+        this.agentJobService = agentJobService;
+        this.agentEventBus = agentEventBus;
     }
 
     public WorkspaceDtos.FolderListResponse listFolders(
@@ -105,7 +115,20 @@ public class WorkspaceService {
         String effectiveIdempotencyKey = StringUtils.hasText(idempotencyKey)
                 ? idempotencyKey.trim()
                 : request.clientMessageId();
-        return workspaceRepository.sendMessage(threadId, request, effectiveIdempotencyKey);
+        WorkspaceDtos.SendMessageResponse response = workspaceRepository.sendMessage(threadId, request, effectiveIdempotencyKey);
+        agentJobService.enqueueMockJob(threadId, response);
+        return response;
+    }
+
+    public SseEmitter streamThread(
+            AuthenticatedUser user,
+            UUID threadId,
+            Long lastEventId,
+            boolean replayOnly
+    ) {
+        UUID projectId = projectIdForThread(threadId);
+        assertProjectAccess(user, projectId);
+        return agentEventBus.subscribe(threadId, lastEventId, replayOnly);
     }
 
     private void assertProjectAccess(AuthenticatedUser user, UUID projectId) {

@@ -201,6 +201,31 @@ public class InMemoryWorkspaceRepository implements WorkspaceRepository {
         return sendResponse(threadId, userMessage, placeholder);
     }
 
+    @Override
+    public synchronized BootstrapResponse.MessageView completeAgentMessage(UUID threadId, String clientMessageId, String content) {
+        UUID projectId = threadProjects.get(threadId);
+        ProjectState state = projects.get(projectId);
+        List<MessageState> messages = state.messagesByThread.computeIfAbsent(threadId, ignored -> new ArrayList<>());
+        for (int index = 0; index < messages.size(); index++) {
+            MessageState message = messages.get(index);
+            if (clientMessageId.equals(message.clientMessageId()) && "agent".equals(message.role())) {
+                MessageState completed = new MessageState(
+                        message.id(),
+                        message.clientMessageId(),
+                        message.role(),
+                        message.agentName(),
+                        content,
+                        message.kind(),
+                        "completed",
+                        message.createdAt()
+                );
+                messages.set(index, completed);
+                return messageView(completed);
+            }
+        }
+        throw new IllegalStateException("Agent placeholder message is not available.");
+    }
+
     private ProjectState seedProject(UUID projectId) {
         ProjectState state = new ProjectState(projectId);
         int folderSort = 0;

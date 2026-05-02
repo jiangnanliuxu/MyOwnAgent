@@ -29,4 +29,6 @@ interface WorkspaceRepository {
     List<BootstrapResponse.MessageView> listMessages(UUID threadId, int limit);
 
     WorkspaceDtos.SendMessageResponse sendMessage(UUID threadId, WorkspaceDtos.SendMessageRequest request, String idempotencyKey);
+
+    BootstrapResponse.MessageView completeAgentMessage(UUID threadId, String clientMessageId, String content);
 }

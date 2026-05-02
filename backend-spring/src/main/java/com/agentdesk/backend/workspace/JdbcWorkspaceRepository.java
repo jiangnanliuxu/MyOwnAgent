@@ -265,6 +265,26 @@ public class JdbcWorkspaceRepository implements WorkspaceRepository {
         );
     }
 
+    @Override
+    @Transactional
+    public BootstrapResponse.MessageView completeAgentMessage(UUID threadId, String clientMessageId, String content) {
+        jdbcClient.sql("""
+                        UPDATE messages
+                        SET content = :content,
+                            status = 'completed',
+                            completed_at = :completed_at
+                        WHERE thread_id = :thread_id
+                          AND client_message_id = :client_message_id
+                          AND role = 'agent'
+                        """)
+                .param("thread_id", threadId)
+                .param("client_message_id", clientMessageId)
+                .param("content", content)
+                .param("completed_at", Timestamp.from(Instant.now()))
+                .update();
+        return findMessage(threadId, clientMessageId).orElseThrow();
+    }
+
     private BootstrapResponse.ThreadView createThreadInternal(
             UUID projectId,
             UUID folderId,

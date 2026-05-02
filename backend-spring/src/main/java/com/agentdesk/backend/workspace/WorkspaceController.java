@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.UUID;
 
@@ -100,5 +101,17 @@ public class WorkspaceController {
             @RequestHeader(name = "X-Idempotency-Key", required = false) String idempotencyKey
     ) {
         return ApiResponse.success(workspaceService.sendMessage(user, threadId, request, idempotencyKey));
+    }
+
+    @GetMapping("/threads/{threadId}/stream")
+    public SseEmitter streamThread(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable UUID threadId,
+            @RequestHeader(name = "Last-Event-ID", required = false) Long lastEventIdHeader,
+            @RequestParam(name = "last_event_id", required = false) Long lastEventIdQuery,
+            @RequestParam(name = "replay_only", defaultValue = "false") boolean replayOnly
+    ) {
+        Long lastEventId = lastEventIdQuery == null ? lastEventIdHeader : lastEventIdQuery;
+        return workspaceService.streamThread(user, threadId, lastEventId, replayOnly);
     }
 }
