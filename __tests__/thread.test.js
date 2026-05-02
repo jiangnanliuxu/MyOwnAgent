@@ -51,6 +51,7 @@ describe('thread store', () => {
         'backend-review': {
           id: '00000000-0000-0000-0000-000000000001',
           client_key: 'backend-review',
+          folder_id: '00000000-0000-0000-0000-000000000010',
           folder: 'backend/src',
           file: 'backend/src/App.java',
           label: 'review-agent',
@@ -67,6 +68,7 @@ describe('thread store', () => {
 
     expect(applied).toBe(true);
     expect(store.getContext('backend-review').backendId).toBe('00000000-0000-0000-0000-000000000001');
+    expect(store.getContext('backend-review').folderId).toBe('00000000-0000-0000-0000-000000000010');
     expect(store.getThreadIdsForFolder('backend/src')).toEqual(['backend-review']);
     expect(store.conversations['backend-review'][0].text).toBe('后端消息');
   });

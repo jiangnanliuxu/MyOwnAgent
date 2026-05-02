@@ -54,20 +54,26 @@ public class AgentLlmService {
             RagRetrievalService.RetrievalResult retrieval,
             Consumer<ToolProgress> toolProgressConsumer
     ) {
-        Optional<RoleDtos.RoleItem> role = resolveRole(projectId, thread, plan);
-        Optional<LlmGateway.ChatConfig> config = role.flatMap(this::chatConfig);
-        if (config.isEmpty()) {
+        List<RoleDtos.RoleItem> roleCandidates = resolveRoleCandidates(projectId, thread, plan);
+        Optional<ConfiguredRole> configuredRole = roleCandidates.stream()
+                .map(role -> chatConfig(role).map(config -> new ConfiguredRole(role, config)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
+        if (configuredRole.isEmpty()) {
             return new Answer(fallbackContent(retrieval, "当前角色还没有可用的 OpenAI Chat Completions 模型配置或 API Key。"));
         }
+        RoleDtos.RoleItem role = configuredRole.get().role();
+        LlmGateway.ChatConfig config = configuredRole.get().config();
 
         List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemPrompt(thread, role.get(), plan, retrieval)));
+        messages.add(Map.of("role", "system", "content", systemPrompt(thread, role, plan, retrieval)));
         messages.add(Map.of("role", "user", "content", request.content()));
         List<Map<String, Object>> tools = developerToolService.toolDefinitions();
 
         String lastContent = "";
         for (int round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-            LlmGateway.ChatTurn turn = llmGateway.chat(config.get(), messages, tools);
+            LlmGateway.ChatTurn turn = llmGateway.chat(config, messages, tools);
             lastContent = turn.content();
             if (!turn.hasToolCalls()) {
                 return new Answer(StringUtils.hasText(lastContent) ? lastContent : "模型已完成处理，但未返回文本内容。");
@@ -90,30 +96,33 @@ public class AgentLlmService {
         return new Answer("模型已调用工具完成分析，但超过当前工具调用轮数限制，请缩小问题后重试。");
     }
 
-    private Optional<RoleDtos.RoleItem> resolveRole(
+    private List<RoleDtos.RoleItem> resolveRoleCandidates(
             UUID projectId,
             BootstrapResponse.ThreadView thread,
             AgentOrchestrationService.AgentOrchestrationPlan plan
     ) {
+        Map<UUID, RoleDtos.RoleItem> candidates = new LinkedHashMap<>();
         if (StringUtils.hasText(plan.toRoleKey())) {
-            Optional<RoleDtos.RoleItem> role = roleLookupService.findRoleByClientKey(projectId, plan.toRoleKey());
-            if (role.isPresent()) {
-                return role;
-            }
+            addCandidate(candidates, roleLookupService.findRoleByClientKey(projectId, plan.toRoleKey()));
+        }
+        if (thread.sessionRoleId() != null) {
+            addCandidate(candidates, roleLookupService.findRole(thread.sessionRoleId()));
+        }
+        if (StringUtils.hasText(thread.sessionRoleKey())) {
+            addCandidate(candidates, roleLookupService.findRoleByClientKey(projectId, thread.sessionRoleKey()));
         }
         if (thread.focusRoleId() != null) {
-            Optional<RoleDtos.RoleItem> role = roleLookupService.findRole(thread.focusRoleId());
-            if (role.isPresent()) {
-                return role;
-            }
+            addCandidate(candidates, roleLookupService.findRole(thread.focusRoleId()));
         }
         if (StringUtils.hasText(thread.focusRoleKey())) {
-            Optional<RoleDtos.RoleItem> role = roleLookupService.findRoleByClientKey(projectId, thread.focusRoleKey());
-            if (role.isPresent()) {
-                return role;
-            }
+            addCandidate(candidates, roleLookupService.findRoleByClientKey(projectId, thread.focusRoleKey()));
         }
-        return roleLookupService.listRoles(projectId).stream().findFirst();
+        roleLookupService.listRoles(projectId).forEach(role -> candidates.putIfAbsent(role.id(), role));
+        return List.copyOf(candidates.values());
+    }
+
+    private void addCandidate(Map<UUID, RoleDtos.RoleItem> candidates, Optional<RoleDtos.RoleItem> role) {
+        role.ifPresent(item -> candidates.putIfAbsent(item.id(), item));
     }
 
     private Optional<LlmGateway.ChatConfig> chatConfig(RoleDtos.RoleItem role) {
@@ -233,5 +242,8 @@ public class AgentLlmService {
             boolean success,
             String content
     ) {
+    }
+
+    private record ConfiguredRole(RoleDtos.RoleItem role, LlmGateway.ChatConfig config) {
     }
 }

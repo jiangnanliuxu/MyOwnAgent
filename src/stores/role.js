@@ -160,7 +160,7 @@ export const useRoleStore = defineStore('role', () => {
     activeRoleId.value = role?.id || 'primary';
   }
 
-  function updateRole(roleId, patch) {
+  async function updateRole(roleId, patch) {
     const role = getRole(roleId);
     const backendMode = isBackendConfigured() && role?.backendId;
     const localPatch = backendMode && Object.prototype.hasOwnProperty.call(patch, 'apiKey')
@@ -169,16 +169,16 @@ export const useRoleStore = defineStore('role', () => {
     Object.assign(role, localPatch);
     persistState();
     if (backendMode) {
-      patchProjectRole(role.backendId, roleToPatchRequest(role, patch))
-        .then((response) => {
-          const updated = response?.role || response;
-          if (updated) Object.assign(role, mapBackendRole(updated));
-          backendError.value = '';
-          persistState();
-        })
-        .catch((error) => {
-          backendError.value = error.message || '角色保存失败';
-        });
+      try {
+        const response = await patchProjectRole(role.backendId, roleToPatchRequest(role, patch));
+        const updated = response?.role || response;
+        if (updated) Object.assign(role, mapBackendRole(updated));
+        backendError.value = '';
+        persistState();
+      } catch (error) {
+        backendError.value = error.message || '角色保存失败';
+        throw error;
+      }
     }
     return role;
   }

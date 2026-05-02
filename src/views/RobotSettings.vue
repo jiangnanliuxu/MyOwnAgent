@@ -92,19 +92,24 @@ function openModelConfig() {
         </label>
       </div>
     `,
-    onSave(modalBody) {
+    async onSave(modalBody) {
       const apiKeyInput = modalBody.querySelector('#provider-key-input').value.trim();
-      roleStore.updateRole(roleStore.activeRoleId, {
-        provider: modalBody.querySelector('#provider-name-input').value.trim(),
-        officialUrl: modalBody.querySelector('#provider-url-input').value.trim(),
-        apiKey: apiKeyInput.startsWith('已') || apiKeyInput.includes('secret_ref') ? '' : apiKeyInput,
-        endpoint: modalBody.querySelector('#provider-endpoint-input').value.trim(),
-        apiFormat: modalBody.querySelector('#provider-format-input').value,
-        model: modalBody.querySelector('#provider-model-input').value.trim(),
-        modelMapping: modalBody.querySelector('#provider-mapping-input').value.trim(),
-        configJson: modalBody.querySelector('#provider-json-input').value
-      });
-      showToast('模型配置已更新');
+      try {
+        await roleStore.updateRole(roleStore.activeRoleId, {
+          provider: modalBody.querySelector('#provider-name-input').value.trim(),
+          officialUrl: modalBody.querySelector('#provider-url-input').value.trim(),
+          apiKey: apiKeyInput.startsWith('已') || apiKeyInput.includes('secret_ref') ? '' : apiKeyInput,
+          endpoint: modalBody.querySelector('#provider-endpoint-input').value.trim(),
+          apiFormat: modalBody.querySelector('#provider-format-input').value,
+          model: modalBody.querySelector('#provider-model-input').value.trim(),
+          modelMapping: modalBody.querySelector('#provider-mapping-input').value.trim(),
+          configJson: modalBody.querySelector('#provider-json-input').value
+        });
+        showToast(roleStore.backendReady ? '模型配置已保存到后端' : '模型配置已更新到本地');
+      } catch (error) {
+        showToast(error.message || '模型配置保存失败');
+        throw error;
+      }
     }
   });
 }

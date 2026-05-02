@@ -4,7 +4,8 @@ import { ACTIVE_THREAD_STORAGE_KEY, THREAD_CONTEXTS } from '../data';
 import { fetchBootstrap } from '../api/bootstrap';
 import { uploadThreadRagFile } from '../api/rag';
 import { isBackendConfigured, apiSession } from '../api/session';
-import { sendThreadMessage } from '../api/threads';
+import { syncFolderRoles } from '../api/roles';
+import { createFolderThread, sendThreadMessage } from '../api/threads';
 import { fetchThreadEvents } from '../services/sseClient';
 
 const DEFAULT_THREAD_ID = 'session-review';
@@ -85,6 +86,18 @@ function createConversationForContext(context) {
       text: `这个会话绑定到 ${folder} 目录，切换到其他会话时这里会展示另一组对话内容。`
     }
   ];
+}
+
+function mapBackendMessages(messages = []) {
+  return messages.map((message) => ({
+    kind: message.role === 'user' ? 'user' : 'agent',
+    title: message.agent_name || message.agentName || (message.role === 'user' ? '你' : '主助手'),
+    text: message.content
+  }));
+}
+
+function backendValue(source, snakeKey, camelKey, fallback = undefined) {
+  return source?.[snakeKey] ?? source?.[camelKey] ?? fallback;
 }
 
 export const useThreadStore = defineStore('thread', () => {
@@ -221,27 +234,8 @@ export const useThreadStore = defineStore('thread', () => {
   function applyBackendBootstrap(data) {
     if (!data?.threads) return false;
     Object.entries(data.threads).forEach(([threadKey, thread]) => {
-      const context = {
-        id: thread.client_key || threadKey,
-        backendId: thread.id,
-        label: thread.label,
-        file: thread.file || thread.folder,
-        folder: thread.folder || getDirectoryFromPath(thread.file),
-        summary: thread.summary,
-        roles: thread.role_keys || thread.roles || ['primary'],
-        focusRole: thread.focus_role_key || 'primary',
-        roleStatus: thread.role_status || '已编排',
-        sessionRoleId: thread.session_role_key || thread.session_role_id || getThreadRoleId(thread.client_key || threadKey)
-      };
-      contexts[context.id] = context;
-      conversations[context.id] = (data.recent_messages?.[threadKey] || []).map((message) => ({
-        kind: message.role === 'user' ? 'user' : 'agent',
-        title: message.agent_name || (message.role === 'user' ? '你' : '主助手'),
-        text: message.content
-      }));
-      if (!conversations[context.id].length) {
-        conversations[context.id] = createConversationForContext(context);
-      }
+      const context = applyBackendThread(thread, data.recent_messages?.[threadKey] || [], threadKey);
+      if (!conversations[context.id].length) conversations[context.id] = createConversationForContext(context);
     });
     const folders = (data.folders || []).map((folder) => folder.name || folder.path).filter(Boolean);
     if (folders.length) {
@@ -250,6 +244,31 @@ export const useThreadStore = defineStore('thread', () => {
     backendReady.value = true;
     persistState();
     return true;
+  }
+
+  function applyBackendThread(thread, messages = [], fallbackKey = null) {
+    const clientKey = backendValue(thread, 'client_key', 'clientKey', fallbackKey || thread.id);
+    const folder = thread.folder || getDirectoryFromPath(thread.file);
+    const context = {
+      id: clientKey,
+      backendId: thread.id,
+      folderId: backendValue(thread, 'folder_id', 'folderId'),
+      label: thread.label,
+      file: thread.file || folder,
+      folder,
+      summary: thread.summary,
+      roles: backendValue(thread, 'role_keys', 'roleKeys', thread.roles || ['primary']),
+      focusRole: backendValue(thread, 'focus_role_key', 'focusRoleKey', 'primary'),
+      roleStatus: backendValue(thread, 'role_status', 'roleStatus', '已编排'),
+      sessionRoleId:
+        backendValue(thread, 'session_role_key', 'sessionRoleKey')
+        || backendValue(thread, 'session_role_id', 'sessionRoleId')
+        || getThreadRoleId(clientKey)
+    };
+    contexts[context.id] = context;
+    conversations[context.id] = mapBackendMessages(messages);
+    persistState();
+    return context;
   }
 
   async function hydrateFromBackend() {
@@ -335,7 +354,7 @@ export const useThreadStore = defineStore('thread', () => {
     return addRelatedFolder(file);
   }
 
-  function addThreadForFolder(folder) {
+  function addLocalThreadForFolder(folder) {
     const normalizedFolder = getDirectoryFromPath(folder);
     const existingCount = Object.values(contexts).filter((context) => getContextFolder(context) === normalizedFolder).length;
     const context = createThreadContext({
@@ -361,6 +380,34 @@ export const useThreadStore = defineStore('thread', () => {
       }
     ];
     persistState();
+    return setActiveThread(context.id, true);
+  }
+
+  async function addThreadForFolder(folder) {
+    const normalizedFolder = getDirectoryFromPath(folder);
+    const existingCount = Object.values(contexts).filter((context) => getContextFolder(context) === normalizedFolder).length;
+    const label = `会话 ${existingCount + 1}`;
+    const summary = '新的独立会话，等待输入任务';
+    const folderContext = Object.values(contexts).find(
+      (context) => getContextFolder(context) === normalizedFolder && context.folderId
+    );
+
+    if (!isBackendConfigured()) {
+      return addLocalThreadForFolder(normalizedFolder);
+    }
+    if (!folderContext?.folderId) {
+      throw new Error('当前目录还没有后端 folderId，请先刷新后端初始化数据。');
+    }
+
+    const response = await createFolderThread(folderContext.folderId, {
+      label,
+      summary,
+      role_keys: ['primary', 'review', 'test'],
+      focus_role_key: 'primary'
+    });
+    await syncFolderRoles(folderContext.folderId);
+    backendError.value = '';
+    const context = applyBackendThread(response.thread, response.initial_messages || response.initialMessages || []);
     return setActiveThread(context.id, true);
   }
 

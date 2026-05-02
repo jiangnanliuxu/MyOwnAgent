@@ -1,5 +1,12 @@
 import { apiRequest } from './http';
 
+export function createFolderThread(folderId, payload) {
+  return apiRequest(`/api/v1/folders/${folderId}/threads`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 export function sendThreadMessage(threadId, payload, idempotencyKey) {
   return apiRequest(`/api/v1/threads/${threadId}/messages`, {
     method: 'POST',

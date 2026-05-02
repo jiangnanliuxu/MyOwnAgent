@@ -48,6 +48,7 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
 
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(config.endpoint()))
+                    .version(HttpClient.Version.HTTP_1_1)
                     .timeout(REQUEST_TIMEOUT)
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + config.apiKey())

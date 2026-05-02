@@ -11,6 +11,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.blankOrNullString;
@@ -204,6 +208,72 @@ class WorkspaceControllerTest {
                 .andExpect(content().string(containsString("smoke-check")));
     }
 
+    @Test
+    void messageUsesConfiguredSessionRoleWhenUiSavedCurrentThreadRole() throws Exception {
+        HttpServer llmServer = startLlmServer("session role model answered");
+        try {
+            AuthSession session = register("b20-session-role-" + UUID.randomUUID() + "@example.com");
+            JsonNode bootstrap = read(mockMvc.perform(get("/api/v1/projects/{projectId}/bootstrap", session.projectId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                    .andExpect(status().isOk())
+                    .andReturn()).path("data");
+            JsonNode roles = read(mockMvc.perform(get("/api/v1/projects/{projectId}/roles?include_thread_roles=true", session.projectId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                    .andExpect(status().isOk())
+                    .andReturn()).path("data").path("items");
+            UUID sessionRoleId = findRoleId(roles, "thread-role-session-review");
+            JsonNode folders = read(mockMvc.perform(get("/api/v1/projects/{projectId}/folders?include_threads=true", session.projectId())
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                    .andExpect(status().isOk())
+                    .andReturn()).path("data").path("items");
+            UUID threadId = UUID.fromString(folders.get(0).path("threads").get(0).path("id").asText());
+
+            mockMvc.perform(patch("/api/v1/roles/{roleId}", sessionRoleId)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "config": {
+                                        "provider": "SiliconFlow Mock",
+                                        "endpoint": "http://127.0.0.1:%d/v1/chat/completions",
+                                        "api_format": "OpenAI Chat Completions",
+                                        "model": "Pro/zai-org/GLM-4.7",
+                                        "api_key": "test-key",
+                                        "config_json": "{\\"temperature\\":0.2}"
+                                      }
+                                    }
+                                    """.formatted(llmServer.getAddress().getPort())))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.role.config.secret_ref", not(blankOrNullString())))
+                    .andExpect(jsonPath("$.data.role.config.api_key").doesNotExist());
+
+            mockMvc.perform(post("/api/v1/threads/{threadId}/messages", threadId)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                            .header("X-Idempotency-Key", "session-role-llm")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "client_message_id": "session-role-llm",
+                                      "content": "你好，请介绍一下你自己",
+                                      "rag": {"enabled": false}
+                                    }
+                                    """))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.data.status").value("processing"));
+
+            MvcResult stream = mockMvc.perform(get("/api/v1/threads/{threadId}/stream?last_event_id=0&replay_only=true", threadId)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                    .andExpect(request().asyncStarted())
+                    .andReturn();
+            mockMvc.perform(asyncDispatch(stream))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(containsString("message_completed")))
+                    .andExpect(content().string(containsString("session role model answered")));
+        } finally {
+            llmServer.stop(0);
+        }
+    }
+
     private JsonNode sendMessage(AuthSession session, UUID threadId, String clientMessageId, String content) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/threads/{threadId}/messages", threadId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
@@ -238,6 +308,31 @@ class WorkspaceControllerTest {
 
     private String bearer(String token) {
         return "Bearer " + token;
+    }
+
+    private UUID findRoleId(JsonNode roles, String clientKey) {
+        for (JsonNode role : roles) {
+            if (clientKey.equals(role.path("client_key").asText())) {
+                return UUID.fromString(role.path("id").asText());
+            }
+        }
+        throw new AssertionError("Role not found: " + clientKey);
+    }
+
+    private HttpServer startLlmServer(String content) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = """
+                    {"choices":[{"message":{"role":"assistant","content":"%s"}}]}
+                    """.formatted(content).getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        return server;
     }
 
     private record AuthSession(String accessToken, UUID projectId) {

@@ -106,11 +106,16 @@ function addRelatedFolder(event) {
   event.target.value = '';
 }
 
-function addThread(group) {
-  const context = threadStore.addThreadForFolder(group.folder);
-  setOpenFolders([context.folder]);
-  contextChip.value = `已新建 ${context.label}`;
-  showToast(`已为 ${group.folder} 新增会话`);
+async function addThread(group) {
+  try {
+    const context = await threadStore.addThreadForFolder(group.folder);
+    setOpenFolders([context.folder]);
+    contextChip.value = `已新建 ${context.label}`;
+    showToast(`已为 ${group.folder} 新增会话`);
+  } catch (error) {
+    contextChip.value = '新增会话失败';
+    showToast(error.message || '新增会话失败，请检查后端连接');
+  }
 }
 
 function appendText(fragment) {
