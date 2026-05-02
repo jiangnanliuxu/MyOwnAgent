@@ -14,15 +14,18 @@ public class AgentJobService {
     private final WorkspaceRepository workspaceRepository;
     private final AgentEventBus agentEventBus;
     private final RagRetrievalService ragRetrievalService;
+    private final AgentOrchestrationService orchestrationService;
 
     public AgentJobService(
             WorkspaceRepository workspaceRepository,
             AgentEventBus agentEventBus,
-            RagRetrievalService ragRetrievalService
+            RagRetrievalService ragRetrievalService,
+            AgentOrchestrationService orchestrationService
     ) {
         this.workspaceRepository = workspaceRepository;
         this.agentEventBus = agentEventBus;
         this.ragRetrievalService = ragRetrievalService;
+        this.orchestrationService = orchestrationService;
     }
 
     public void enqueueMockJob(UUID threadId, WorkspaceDtos.SendMessageResponse response, WorkspaceDtos.SendMessageRequest request) {
@@ -32,6 +35,29 @@ public class AgentJobService {
                 "placeholder_id", response.agentPlaceholder().id()
         ));
         RagRetrievalService.RetrievalResult retrieval = ragRetrievalService.retrieve(threadId, request.content(), request.rag());
+        AgentOrchestrationService.AgentOrchestrationPlan plan = orchestrationService.plan(threadId, request, retrieval);
+        agentEventBus.publish(threadId, "agent_selected", Map.of(
+                "message_id", response.agentPlaceholder().id(),
+                "role_key", plan.toRoleKey(),
+                "reason", plan.reason(),
+                "rag_snippet_count", plan.ragSnippetCount()
+        ));
+        if (plan.handoffRequired()) {
+            agentEventBus.publish(threadId, "agent_handoff", Map.of(
+                    "message_id", response.agentPlaceholder().id(),
+                    "from_role_key", plan.fromRoleKey(),
+                    "to_role_key", plan.toRoleKey(),
+                    "reason", plan.reason()
+            ));
+        }
+        if (!plan.skillIds().isEmpty()) {
+            agentEventBus.publish(threadId, "skill_run_planned", Map.of(
+                    "message_id", response.agentPlaceholder().id(),
+                    "role_key", plan.toRoleKey(),
+                    "skill_ids", plan.skillIds(),
+                    "runner", "python-skill-runner"
+            ));
+        }
         if (retrieval.enabled() && retrieval.count() > 0) {
             agentEventBus.publish(threadId, "rag_retrieval", Map.of(
                     "message_id", response.agentPlaceholder().id(),

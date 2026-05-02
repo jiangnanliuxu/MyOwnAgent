@@ -155,6 +155,7 @@ RAG 固定流程：
 - 自动进入下一阶段时，Planning Agent 必须立即把 `BACKEND-DEVELOPMENT-LOG.md` 的当前状态切到下一阶段 `In Progress`，补充该阶段 Planning 记录，并在会话窗口说明当前切换到 Planning Agent 工作。
 - 只有用户明确要求暂停、只提交不继续或等待确认时，阶段完成后才不自动进入下一阶段；暂停原因必须记录到 `BACKEND-DEVELOPMENT-LOG.md`。
 - 每次阶段推进、bug 修复、测试失败或测试通过，都要更新 `BACKEND-DEVELOPMENT-LOG.md`，方便查看当前开发位置。
+- 同一个 Gradle 工程的测试和构建不能并行执行；`backend-spring` 的 `./gradlew clean test`、dev profile 测试、`bootJar` 必须顺序运行，避免多个 Gradle 任务同时写同一个 `build/` 目录造成假失败。
 - 主工作台会话窗口必须显示当前工作 Agent；切换 Planning / Development / Testing 状态时，不得影响当前 thread 选择和消息列表。
 
 后端阶段默认从 `BACKEND-DEVELOPMENT-LOG.md` 的 B01 开始推进。当前拆分为 Spring Boot 骨架、基础设施与数据库、认证偏好、bootstrap、thread/message、role、skill、MCP、SSE/Agent job、Python Agent、RAG 索引、RAG 检索、多 Agent 编排、系统设置、前端 API 接入、观测安全部署等阶段。

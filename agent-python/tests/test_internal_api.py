@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.graph.orchestrator import run_skeleton_graph
 from app.main import app
-from app.models import RagIndexJob, RagRetrievalQuery
+from app.graph.planner import plan_orchestration
+from app.models import AgentOrchestrationRequest, RagIndexJob, RagRetrievalQuery
 from app.rag.indexer import plan_index_job
 from app.rag.retriever import plan_retrieval
 
@@ -105,3 +106,21 @@ def test_rag_retrieval_plan_keeps_thread_scope_filter() -> None:
     assert plan["status"] == "planned"
     assert "project_id == 'project-1'" in plan["filter"]
     assert "thread_id == 'thread-1'" in plan["filter"]
+
+
+def test_agent_orchestration_plan_marks_handoff_and_skills() -> None:
+    plan = plan_orchestration(
+        AgentOrchestrationRequest(
+            job_id="job-b13-1",
+            thread_id="thread-1",
+            content="请检查登录 token 刷新逻辑",
+            focus_role_key="review",
+            role_keys=["primary", "review", "auth"],
+            skill_ids=["auth-review"],
+            rag_snippet_count=2,
+        )
+    )
+    assert plan["to_role_key"] == "auth"
+    assert plan["handoff_required"] is True
+    assert plan["skill_ids"] == ["auth-review"]
+    assert plan["rag_snippet_count"] == 2

@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B13 | In Progress | 无 | Planning Agent 开始多 Agent 编排阶段 |
+| B14 | In Progress | 无 | Planning Agent 开始系统设置能力阶段 |
 
 ## 阶段拆分
 
@@ -45,8 +45,8 @@
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [x] | [x] | [x] | 无 | 不直接写核心业务表 |
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [x] | [x] | 无 | 输入框下方文件按钮是入口 |
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [x] | [x] | 无 | 默认 scope=thread |
-| B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [ ] | [ ] | In Progress | 依赖 B09/B10 |
-| B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [ ] | [ ] | [ ] | 待开始 | 对应 `/settings` |
+| B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [x] | [x] | 无 | 依赖 B09/B10 |
+| B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [ ] | [ ] | In Progress | 对应 `/settings` |
 | B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [ ] | [ ] | [ ] | 待开始 | 分页面逐步切换 |
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [ ] | [ ] | [ ] | 待开始 | 生产前收口 |
 
@@ -850,6 +850,53 @@
   - [x] 阶段范围已确认：在现有 Role、Skill、MCP、RAG 和 SSE 基础上增加多 Agent 编排骨架，包括角色路由、handoff 事件、Skill Runner 调用契约和上下文压缩入口占位。
   - [x] 验收标准已确认：消息流不能破坏 B09/B12；handoff 必须产生可回放 SSE 事件；Python 继续不直接写核心业务表；工具调用仍经过 Spring Tool Gateway。
   - [x] 依赖和风险已记录：依赖 B06 角色配置、B07 Skill、B08 MCP Gateway、B09 SSE、B10 Python Agent 和 B12 RAG 检索；真实多模型调用后续需要密钥 `secret_ref` 和运行日志收口。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B13 无新增迁移，复用 SSE event buffer、thread role metadata 和现有消息表。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `AGENTS.md`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentOrchestrationService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentJobService.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/workspace/WorkspaceControllerTest.java`
+    - `agent-python/app/models.py`
+    - `agent-python/app/graph/planner.py`
+    - `agent-python/tests/test_internal_api.py`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd agent-python && .venv/bin/python -m pytest`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --tests com.agentdesk.backend.rag.RagControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest`
+    - `cd agent-python && .venv/bin/python -m compileall app tests`
+  - 测试结果：
+    - Spring Workspace 定向测试：通过，发送登录/token 相关消息后 SSE replay 包含 `agent_selected`、`agent_handoff`、`skill_run_planned` 和 `python-skill-runner`。
+    - Spring dev profile 组合回归：Workspace + RAG 通过。
+    - Spring 默认 profile `./gradlew clean test`：通过。
+    - Spring `./gradlew bootJar`：通过。
+    - Python Agent 测试：8 passed，含 handoff、skill、RAG snippet 编排计划。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 测试过程中再次触发同一 Gradle 工程并行写 `build/` 的假失败；已按顺序重跑通过，并把禁止并行 Gradle 构建规则补进 `AGENTS.md`。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B14 - 系统设置能力
+
+- Planning Agent:
+  - [x] 阶段范围已确认：围绕 `/settings` 页面补后端系统设置能力，包括任务队列视图、运行日志查询、上下文压缩配置、备份配置和工具授权摘要。
+  - [x] 验收标准已确认：只暴露 Spring `/api/v1/**` 给浏览器；不泄露真实密钥；设置修改必须按项目鉴权；已有消息、RAG、MCP、Skill 接口不能回归。
+  - [x] 依赖和风险已记录：依赖 B03 用户偏好、B08 task_logs/MCP 审计、B09/B13 agent events；真实备份任务和密钥托管先做接口边界和可替换占位。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

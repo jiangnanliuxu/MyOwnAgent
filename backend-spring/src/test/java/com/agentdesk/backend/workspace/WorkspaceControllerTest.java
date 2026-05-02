@@ -165,6 +165,45 @@ class WorkspaceControllerTest {
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
+    @Test
+    void messageSendEmitsAgentHandoffAndSkillPlanEvents() throws Exception {
+        AuthSession session = register("b13-" + UUID.randomUUID() + "@example.com");
+        JsonNode folders = read(mockMvc.perform(get("/api/v1/projects/{projectId}/folders?include_threads=true", session.projectId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isOk())
+                .andReturn());
+        UUID threadId = UUID.fromString(folders.path("data").path("items").get(0).path("threads").get(0).path("id").asText());
+
+        mockMvc.perform(post("/api/v1/threads/{threadId}/messages", threadId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .header("X-Idempotency-Key", "b13-handoff")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "client_message_id": "b13-handoff",
+                                  "content": "请检查登录 token 刷新逻辑，并运行指定 skill",
+                                  "context": {"skill_ids": ["smoke-check", "auth-review"]},
+                                  "rag": {"enabled": false}
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.status").value("processing"));
+
+        MvcResult stream = mockMvc.perform(get("/api/v1/threads/{threadId}/stream?last_event_id=0&replay_only=true", threadId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        mockMvc.perform(asyncDispatch(stream))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("agent_selected")))
+                .andExpect(content().string(containsString("agent_handoff")))
+                .andExpect(content().string(containsString("from_role_key")))
+                .andExpect(content().string(containsString("auth")))
+                .andExpect(content().string(containsString("skill_run_planned")))
+                .andExpect(content().string(containsString("python-skill-runner")))
+                .andExpect(content().string(containsString("smoke-check")));
+    }
+
     private JsonNode sendMessage(AuthSession session, UUID threadId, String clientMessageId, String content) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/threads/{threadId}/messages", threadId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))

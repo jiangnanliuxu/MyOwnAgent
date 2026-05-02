@@ -80,3 +80,13 @@ class RagRetrievalQuery(BaseModel):
     query: str
     top_k: int = Field(default=4, ge=1, le=10)
     scope: str = "thread"
+
+
+class AgentOrchestrationRequest(BaseModel):
+    job_id: str
+    thread_id: str
+    content: str
+    focus_role_key: str = "primary"
+    role_keys: List[str] = Field(default_factory=list)
+    skill_ids: List[str] = Field(default_factory=list)
+    rag_snippet_count: int = Field(default=0, ge=0)
