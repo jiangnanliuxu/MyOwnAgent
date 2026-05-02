@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B14 | In Progress | 无 | Planning Agent 开始系统设置能力阶段 |
+| B15 | In Progress | 无 | Planning Agent 开始前端 API 接入阶段 |
 
 ## 阶段拆分
 
@@ -46,8 +46,8 @@
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [x] | [x] | [x] | 无 | 输入框下方文件按钮是入口 |
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [x] | [x] | 无 | 默认 scope=thread |
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [x] | [x] | 无 | 依赖 B09/B10 |
-| B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [ ] | [ ] | In Progress | 对应 `/settings` |
-| B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [ ] | [ ] | [ ] | 待开始 | 分页面逐步切换 |
+| B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [x] | [x] | 无 | 对应 `/settings` |
+| B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [ ] | [ ] | In Progress | 分页面逐步切换 |
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [ ] | [ ] | [ ] | 待开始 | 生产前收口 |
 
 ## 阶段记录模板
@@ -897,6 +897,53 @@
   - [x] 阶段范围已确认：围绕 `/settings` 页面补后端系统设置能力，包括任务队列视图、运行日志查询、上下文压缩配置、备份配置和工具授权摘要。
   - [x] 验收标准已确认：只暴露 Spring `/api/v1/**` 给浏览器；不泄露真实密钥；设置修改必须按项目鉴权；已有消息、RAG、MCP、Skill 接口不能回归。
   - [x] 依赖和风险已记录：依赖 B03 用户偏好、B08 task_logs/MCP 审计、B09/B13 agent events；真实备份任务和密钥托管先做接口边界和可替换占位。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B14 无新增迁移，复用 `projects.settings` 和 `task_logs`；新增 default/dev 双 repository 实现。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/SettingsController.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/SettingsService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/SettingsDtos.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/SettingsRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/InMemorySettingsRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/settings/JdbcSettingsRepository.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/settings/SettingsControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.settings.SettingsControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.settings.SettingsControllerTest --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.settings.SettingsControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.settings.SettingsControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.settings.SettingsControllerTest --tests com.agentdesk.backend.mcp.McpControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+  - 测试结果：
+    - Settings 默认 profile 定向测试：通过，覆盖未认证、读取概览、保存上下文压缩/备份/工具授权、运行日志列表、跨用户 403。
+    - Settings dev profile 定向测试：通过，验证 PostgreSQL `projects.settings` 读写和 `task_logs` 查询。
+    - 默认 profile `./gradlew clean test`：通过。
+    - dev profile Settings + MCP 组合回归：通过。
+    - `./gradlew bootJar`：通过。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - PostgreSQL 对空参数 `:type IS NULL` 的类型推断导致 task log 查询 500；改为动态 SQL，仅在过滤条件存在时拼接 `type/level` 参数。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B15 - 前端 API 接入
+
+- Planning Agent:
+  - [x] 阶段范围已确认：新增前端 API adapter 与服务层，分页面替换 Pinia mock 读取/写入路径，优先接 bootstrap、thread/message、SSE、RAG 上传、settings overview。
+  - [x] 验收标准已确认：默认无后端时仍可使用 mock；配置后端地址后走 Spring API；输入框下方文件按钮作为 RAG 上传索引入口；现有 4 个页面 E2E 不回归。
+  - [x] 依赖和风险已记录：依赖 B04-B14 后端接口；前端切换必须保留 query/localStorage/default active thread 规则，避免一次性大改所有 store。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
