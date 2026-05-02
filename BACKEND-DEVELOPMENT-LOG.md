@@ -17,8 +17,9 @@
 - Testing Agent 必须在同一阶段完成测试后，才能勾选 `Test Done`。
 - 如果 Testing Agent 发现 bug，当前阶段保持未完成，Development Agent 必须先修复，再交回 Testing Agent 复测。
 - 只有 `Dev Done` 和 `Test Done` 都打勾，Planning Agent 才能启动下一阶段。
-- 每个阶段完成后必须立即提交并推送到 Git；推送成功且 `git status` 干净后，Planning Agent 才能把下一阶段切到 `In Progress` 或开始规划。
+- 每个阶段完成后必须立即提交并推送到 Git；推送成功且 `git status` 干净后，Planning Agent 必须默认自动把下一阶段切到 `In Progress` 并开始规划。
 - 如果提交或推送失败，当前阶段保持未关闭，必须先修复 Git/远端问题，不得继续开发下一阶段。
+- 只有用户明确要求暂停、只提交不继续或等待确认时，阶段完成后才不自动进入下一阶段；暂停原因必须记录在本日志。
 - 所有阶段都要记录测试命令；如果某项测试不能运行，必须写明原因和剩余风险。
 
 ## 当前状态
