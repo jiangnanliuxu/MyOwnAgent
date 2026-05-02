@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B08 | In Progress | 无 | Planning Agent 开始 MCP Gateway 阶段 |
+| B09 | In Progress | 无 | Planning Agent 开始 SSE 与 Agent Job 阶段 |
 
 ## 阶段拆分
 
@@ -40,8 +40,8 @@
 | B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [x] | [x] | [x] | 无 | 暂不启用真实 Agent |
 | B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [x] | [x] | [x] | 无 | 机器人设置页核心 |
 | B07 | Skill 管理 | skills CRUD、toggle、mount policy、sync-policy | [x] | [x] | [x] | 无 | Skill 不是 MCP |
-| B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [ ] | [ ] | In Progress | Python 不能绕过 Spring 调工具 |
-| B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [ ] | [ ] | [ ] | 待开始 | 先接单 Agent mock worker |
+| B08 | MCP Gateway | mcp_endpoints、health-check、tool registry、`/internal/tools/invoke` | [x] | [x] | [x] | 无 | Python 不能绕过 Spring 调工具 |
+| B09 | SSE 与 Agent Job | `agent.jobs`、`agent.events:{threadId}`、SseEmitter、断点续传 | [x] | [ ] | [ ] | In Progress | 先接单 Agent mock worker |
 | B10 | Python Agent 基础服务 | `agent-python`、FastAPI internal API、Redis worker、LangGraph skeleton | [ ] | [ ] | [ ] | 待开始 | 不直接写核心业务表 |
 | B11 | RAG 上传索引 | `rag_documents`、`rag.index.jobs`、MinIO、Milvus、Embedding Gateway | [ ] | [ ] | [ ] | 待开始 | 输入框下方文件按钮是入口 |
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [ ] | [ ] | [ ] | 待开始 | 默认 scope=thread |
@@ -558,6 +558,65 @@
   - [x] 阶段范围已确认：实现项目 MCP endpoint 列表、新增、更新、单端点健康检查、批量健康检查、工具注册只读视图和 `/internal/tools/invoke` 占位治理入口。
   - [x] 验收标准已确认：接口需要认证和 project 归属校验；Python Agent 后续必须通过 Spring Tool Gateway 调工具；真实 MCP 调用留到后续 transport adapter。
   - [x] 依赖和风险已记录：依赖 B04 seed 的 `mcp_endpoints`；B08 不执行真实外部 MCP 工具，不保存明文 secret。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B08 无新增 Flyway 迁移，复用 `mcp_endpoints`、`mcp_health_checks`、`task_logs` 表。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/mcp/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/SecurityConfig.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/mcp/McpControllerTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --tests com.agentdesk.backend.mcp.McpControllerTest --tests com.agentdesk.backend.skill.SkillControllerTest --tests com.agentdesk.backend.role.RoleControllerTest --tests com.agentdesk.backend.workspace.WorkspaceControllerTest --rerun-tasks`
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `GET /api/v1/projects/:id/mcp`
+    - `POST /api/v1/projects/:id/mcp`
+    - `PATCH /api/v1/mcp/:id`
+    - `POST /api/v1/mcp/:id/health-check`
+    - `GET /api/v1/projects/:id/mcp/tools`
+    - `POST /api/v1/projects/:id/mcp/health-check-all`
+    - `GET /api/v1/projects/:id/mcp/health-status`
+    - `POST /internal/tools/invoke`
+    - `GET /api/v1/mcp/:id` with another user's token
+  - 测试结果：
+    - B08 定向 `McpControllerTest`：通过
+    - B05+B06+B07+B08 组合回归：通过
+    - 默认 profile `./gradlew clean test`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - HTTP 冒烟：MCP 列表、新增、更新、单端点健康检查、批量健康检查、工具注册表、内部工具调用占位审计、跨用户 403 均通过
+    - `secret_input` 不出现在响应中，只返回 `secret_ref`；B08 不执行真实外部 MCP 工具
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 项目级 MCP 子路径补充进入 `SecurityConfig` 认证规则，避免 `tools`、`health-status`、`health-check-all` 旁路认证。
+    - `/internal/tools/invoke` 增加 `X-Internal-Token` 校验和 task log 审计占位，真实 transport adapter 后续接入。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B09 - SSE 与 Agent Job
+
+- Planning Agent:
+  - [x] 阶段范围已确认：实现消息发送后的 agent job 入队占位、`agent.events:{threadId}` 事件模型、`/threads/:id/stream` SSE、断点续传和 mock worker 输出。
+  - [x] 验收标准已确认：前端可以连接 SSE 看到 pending agent 消息转为 completed；暂不接真实 Python Agent。
+  - [x] 依赖和风险已记录：依赖 B05 message placeholder 和 B08 task log；B09 先用 Spring 内部 mock worker，后续 B10 再接 Python。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
