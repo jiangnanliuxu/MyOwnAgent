@@ -29,6 +29,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure(errorCode.code(), exception.getMessage(), exception.getDetails()));
     }
 
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException exception) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.failure(ErrorCode.UNAUTHORIZED.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValid(MethodArgumentNotValidException exception) {
         List<FieldViolation> violations = exception.getBindingResult()

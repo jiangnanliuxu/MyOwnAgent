@@ -1,6 +1,8 @@
 spring:
   application:
     name: agent-desk-backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   mvc:
     throw-exception-if-no-handler-found: true
   web:
@@ -31,6 +33,11 @@ management:
 agent-desk:
   api:
     version: v1
+  security:
+    jwt:
+      secret: ${AGENT_DESK_JWT_SECRET:local-development-only-change-this-placeholder-secret-32}
+      access-token-ttl: ${AGENT_DESK_JWT_ACCESS_TOKEN_TTL:15m}
+      refresh-token-ttl: ${AGENT_DESK_JWT_REFRESH_TOKEN_TTL:7d}
   infrastructure:
     enabled: false
     postgres:

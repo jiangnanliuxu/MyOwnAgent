@@ -35,4 +35,18 @@ class FlywayMigrationTest {
         assertThat(sql).contains("create table task_logs");
         assertThat(sql).contains("streamable_http");
     }
+
+    @Test
+    void authMigrationStoresCredentialAndRefreshTokenHashes() throws Exception {
+        ClassPathResource migration = new ClassPathResource("db/migration/V2__auth_tokens.sql");
+
+        assertThat(migration.exists()).isTrue();
+
+        String sql = migration.getContentAsString(StandardCharsets.UTF_8).toLowerCase();
+        assertThat(sql).contains("create table user_auth_credentials");
+        assertThat(sql).contains("password_hash text not null");
+        assertThat(sql).contains("create table refresh_tokens");
+        assertThat(sql).contains("token_hash text unique not null");
+        assertThat(sql).doesNotContain("refresh_token text");
+    }
 }

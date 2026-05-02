@@ -3,11 +3,16 @@ package com.agentdesk.backend.common.error;
 import com.agentdesk.backend.common.api.ApiResponse;
 import com.agentdesk.backend.common.web.TraceId;
 import com.agentdesk.backend.common.web.TraceIdFilter;
+import com.agentdesk.backend.security.JwtAuthenticationFilter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +30,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = GlobalExceptionHandlerTest.ProbeController.class)
+@WebMvcTest(
+        controllers = GlobalExceptionHandlerTest.ProbeController.class,
+        excludeAutoConfiguration = {SecurityAutoConfiguration.class, SecurityFilterAutoConfiguration.class},
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class)
+)
 @Import({GlobalExceptionHandler.class, TraceIdFilter.class, GlobalExceptionHandlerTest.ProbeController.class})
 class GlobalExceptionHandlerTest {
 

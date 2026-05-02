@@ -23,7 +23,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B02 | Done | 无 | 进入 B03 认证与用户偏好规划 |
+| B03 | Done | 无 | 进入 B04 Bootstrap 只读接口规划 |
 
 ## 阶段拆分
 
@@ -32,7 +32,7 @@
 | B00 | 流程初始化 | 建立三 Agent 流程、开发日志、AGENTS.md 规则 | [x] | [x] | [x] | 无 | 文档和日志初始化完成 |
 | B01 | Spring Boot 骨架 | `backend-spring` 项目、Gradle、基础配置、健康检查、统一响应、异常处理、会话当前 Agent 状态显示 | [x] | [x] | [x] | 无 | 先不接业务表 |
 | B02 | 基础设施与数据库 | Docker Compose、PostgreSQL、Redis、MinIO、Flyway V1 schema | [x] | [x] | [x] | 无 | Milvus 只提供独立启动说明 |
-| B03 | 认证与用户偏好 | Auth、JWT、`/auth/me`、`/me/preferences`、active thread 规则 | [ ] | [ ] | [ ] | 待开始 | 保持 query/localStorage/default 兼容 |
+| B03 | 认证与用户偏好 | Auth、JWT、`/auth/me`、`/me/preferences`、active thread 规则 | [x] | [x] | [x] | 无 | 保持 query/localStorage/default 兼容 |
 | B04 | Bootstrap 只读接口 | `GET /projects/:id/bootstrap`，迁移 mock seed 到 PostgreSQL | [ ] | [ ] | [ ] | 待开始 | 前端可先只读接入 |
 | B05 | Folder/Thread/Message CRUD | 目录新增、会话新增、消息历史、幂等消息发送入队前半段 | [ ] | [ ] | [ ] | 待开始 | 暂不启用真实 Agent |
 | B06 | Role 编排 | roles、thread_roles、sync-roles、source_thread_id 回写 thread | [ ] | [ ] | [ ] | 待开始 | 机器人设置页核心 |
@@ -237,6 +237,76 @@
     - 新增 `minio-init` 服务创建 `agent-desk-dev` bucket。
     - Flyway schema test 补齐 `user_configs`、`mcp_health_checks` 和 `streamable_http` 覆盖。
     - 调整默认 profile 断言测试，使其在 dev profile 下跳过，避免 dev 连接测试误判。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B03 - 认证与用户偏好
+
+- Planning Agent:
+  - [x] 阶段范围已确认：Spring Security/JWT、注册/登录/刷新、`/api/v1/auth/me`、`/api/v1/me/preferences` 读写。
+  - [x] 验收标准已确认：默认 profile 不依赖 Docker；dev profile 可连接 B02 数据库；未认证返回统一 401；偏好 active thread 按 query/user/default 规则落地。
+  - [x] 依赖和风险已记录：V1 缺少密码与 refresh token 字段，B03 需新增 V2 migration；B04 seed 前不能假设已有 thread 数据。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/build.gradle`
+    - `backend-spring/src/main/resources/application.yml`
+    - `backend-spring/src/main/resources/db/migration/V2__auth_tokens.sql`
+    - `backend-spring/src/main/java/com/agentdesk/backend/auth/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/security/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/user/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/common/error/AuthenticationException.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/common/error/ErrorCode.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/common/error/GlobalExceptionHandler.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/auth/AuthControllerTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/common/error/GlobalExceptionHandlerTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/config/FlywayMigrationTest.java`
+  - 自测命令：
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `cd backend-spring && ./gradlew clean test`
+    - `cd backend-spring && ./gradlew test --tests com.agentdesk.backend.auth.AuthControllerTest`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd backend-spring && SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun --args='--server.port=18080'`
+    - `curl -s -i http://localhost:18080/actuator/health`
+    - `POST /api/v1/auth/register`
+    - `POST /api/v1/auth/login`
+    - `GET /api/v1/auth/me`
+    - `GET /api/v1/me/preferences`
+    - `PATCH /api/v1/me/preferences`
+    - `POST /api/v1/auth/refresh`
+    - `GET /api/v1/auth/me` without token
+    - `docker compose -f docker/docker-compose.yml exec -T postgres psql -U agentdesk -d agentdesk -Atc "select version, success from flyway_schema_history order by installed_rank;"`
+  - 测试结果：
+    - 默认 profile `./gradlew clean test`：通过
+    - B03 定向 `AuthControllerTest`：通过
+    - dev profile `SPRING_PROFILES_ACTIVE=dev ./gradlew test --rerun-tasks`：通过
+    - `./gradlew bootJar`：通过
+    - dev profile Flyway：`V1` 和 `V2` success=`t`
+    - `user_auth_credentials`、`refresh_tokens` 已创建
+    - 注册/登录返回 `access_token`、`refresh_token`、`token_type=Bearer`
+    - `/api/v1/auth/me` 带 token 返回当前用户，不带 token 返回统一 `UNAUTHORIZED`
+    - `/api/v1/me/preferences` 首次返回 `active_thread_key=session-review`
+    - `PATCH /api/v1/me/preferences` 支持 JSON 合并，未知 thread 回退 `session-review`
+    - refresh token 轮换通过，旧 refresh token 复用返回 `UNAUTHORIZED`
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - refresh token 默认 TTL 调整为 7 天，匹配架构文档。
+    - `PATCH /me/preferences` 改为合并 `preferences` JSON，而不是整体替换。
+    - 显式放行 `OPTIONS /**`，避免 CORS preflight 被认证拦截。
+    - 增加拒绝式 `UserDetailsService`，避免 Spring Boot 生成默认用户密码日志。
+    - 顺序重跑 dev profile 测试，避免并行 `clean` 删除另一个测试进程的 build 输出。
 - Gate:
   - [x] Dev Done
   - [x] Test Done
