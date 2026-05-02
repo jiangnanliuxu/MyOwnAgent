@@ -150,6 +150,9 @@ RAG 固定流程：
 - Testing Agent 必须在 Development Agent 完成后测试；测试通过后勾选 `Test Done`。
 - 如果 Testing Agent 发现 bug，当前阶段不能进入下一步；必须交回 Development Agent 修复，修复后 Testing Agent 复测。
 - 只有 `Dev Done` 和 `Test Done` 都完成，且 Planning Agent 批准后，才能进入下一阶段。
+- 每个阶段完成后必须立即提交并推送到 Git：提交信息使用阶段编号开头或明确包含阶段编号，例如 `Add B04 bootstrap API`；推送成功并确认工作区干净后，Planning Agent 才能把下一阶段标记为开始。
+- 如果阶段提交或推送失败，当前阶段保持未关闭，必须先修复 Git/远端问题，不得继续开发下一阶段。
+- 开启下一阶段时，Planning Agent 必须更新 `BACKEND-DEVELOPMENT-LOG.md` 的当前状态、阶段勾选和下一步说明，并在会话窗口说明当前切换到哪个 Agent 工作。
 - 每次阶段推进、bug 修复、测试失败或测试通过，都要更新 `BACKEND-DEVELOPMENT-LOG.md`，方便查看当前开发位置。
 - 主工作台会话窗口必须显示当前工作 Agent；切换 Planning / Development / Testing 状态时，不得影响当前 thread 选择和消息列表。
 
