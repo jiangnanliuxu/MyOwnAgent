@@ -1,6 +1,10 @@
 import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { ACTIVE_THREAD_STORAGE_KEY, THREAD_CONTEXTS } from '../data';
+import { fetchBootstrap } from '../api/bootstrap';
+import { uploadThreadRagFile } from '../api/rag';
+import { isBackendConfigured, apiSession } from '../api/session';
+import { sendThreadMessage } from '../api/threads';
 
 const DEFAULT_THREAD_ID = 'session-review';
 const THREAD_STATE_STORAGE_KEY = 'agentDesk.threadState.v1';
@@ -98,6 +102,8 @@ export const useThreadStore = defineStore('thread', () => {
   const allContextFolders = [...new Set(Object.values(contexts).map((context) => getContextFolder(context)))];
   const folderOrder = ref([...new Set([...storedFolderOrder, ...storedFileOrder, ...defaultFolderOrder, ...allContextFolders])]);
   const currentThreadId = ref(DEFAULT_THREAD_ID);
+  const backendReady = ref(false);
+  const backendError = ref('');
   const conversations = reactive({
     ...Object.fromEntries(Object.values(defaultContexts).map((context) => [context.id, createConversationForContext(context)])),
     ...(storedState.conversations || {})
@@ -211,6 +217,79 @@ export const useThreadStore = defineStore('thread', () => {
     return context;
   }
 
+  function applyBackendBootstrap(data) {
+    if (!data?.threads) return false;
+    Object.entries(data.threads).forEach(([threadKey, thread]) => {
+      const context = {
+        id: thread.client_key || threadKey,
+        backendId: thread.id,
+        label: thread.label,
+        file: thread.file || thread.folder,
+        folder: thread.folder || getDirectoryFromPath(thread.file),
+        summary: thread.summary,
+        roles: thread.role_keys || thread.roles || ['primary'],
+        focusRole: thread.focus_role_key || 'primary',
+        roleStatus: thread.role_status || '已编排',
+        sessionRoleId: thread.session_role_id || getThreadRoleId(thread.client_key || threadKey)
+      };
+      contexts[context.id] = context;
+      conversations[context.id] = (data.recent_messages?.[threadKey] || []).map((message) => ({
+        kind: message.role === 'user' ? 'user' : 'agent',
+        title: message.agent_name || (message.role === 'user' ? '你' : '主助手'),
+        text: message.content
+      }));
+      if (!conversations[context.id].length) {
+        conversations[context.id] = createConversationForContext(context);
+      }
+    });
+    const folders = (data.folders || []).map((folder) => folder.name || folder.path).filter(Boolean);
+    if (folders.length) {
+      folderOrder.value = [...new Set([...folders, ...folderOrder.value])];
+    }
+    backendReady.value = true;
+    persistState();
+    return true;
+  }
+
+  async function hydrateFromBackend() {
+    if (!isBackendConfigured()) return false;
+    try {
+      const { projectId } = apiSession();
+      const data = await fetchBootstrap(projectId);
+      backendError.value = '';
+      return applyBackendBootstrap(data);
+    } catch (error) {
+      backendReady.value = false;
+      backendError.value = error.message || '后端初始化失败';
+      return false;
+    }
+  }
+
+  async function sendMessageToBackend(threadId, content, options = {}) {
+    const context = getContext(threadId);
+    if (!isBackendConfigured() || !context.backendId) return null;
+    const clientMessageId = options.clientMessageId || `web-${Date.now().toString(36)}`;
+    return sendThreadMessage(
+      context.backendId,
+      {
+        client_message_id: clientMessageId,
+        content,
+        context: options.context || {},
+        rag: options.rag || { enabled: true, scope: 'thread' }
+      },
+      clientMessageId
+    );
+  }
+
+  async function uploadRagFile(threadId, file) {
+    const context = getContext(threadId);
+    if (!isBackendConfigured() || !context.backendId || !file) return null;
+    return uploadThreadRagFile(context.backendId, file, {
+      scope: 'thread',
+      sourcePath: file.webkitRelativePath || file.name
+    });
+  }
+
   function addRelatedFolder(selection) {
     const folder = normalizeFolderName(selection);
     if (!folderOrder.value.includes(folder)) {
@@ -301,6 +380,8 @@ export const useThreadStore = defineStore('thread', () => {
     contexts,
     fileGroups,
     currentThreadId,
+    backendReady,
+    backendError,
     currentContext,
     currentConversation,
     conversations,
@@ -314,11 +395,15 @@ export const useThreadStore = defineStore('thread', () => {
     resolveThreadId,
     setActiveThread,
     hydrateFromRoute,
+    hydrateFromBackend,
+    applyBackendBootstrap,
     addRelatedFolder,
     addRelatedFile,
     addThreadForFolder,
     addThreadForFile,
     updateThread,
-    appendConversationBubble
+    appendConversationBubble,
+    sendMessageToBackend,
+    uploadRagFile
   };
 });

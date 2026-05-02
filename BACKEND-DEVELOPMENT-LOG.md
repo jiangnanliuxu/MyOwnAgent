@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B15 | In Progress | 无 | Planning Agent 开始前端 API 接入阶段 |
+| B16 | In Progress | 无 | Planning Agent 开始观测、安全与部署阶段 |
 
 ## 阶段拆分
 
@@ -47,8 +47,8 @@
 | B12 | RAG 检索回答 | query embedding、Milvus search、prompt 注入、`rag_retrieval` SSE | [x] | [x] | [x] | 无 | 默认 scope=thread |
 | B13 | 多 Agent 编排 | 角色路由、handoff、上下文压缩、Skill Runner 调用 | [x] | [x] | [x] | 无 | 依赖 B09/B10 |
 | B14 | 系统设置能力 | 任务队列、运行日志、备份、上下文压缩、工具授权 | [x] | [x] | [x] | 无 | 对应 `/settings` |
-| B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [ ] | [ ] | In Progress | 分页面逐步切换 |
-| B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [ ] | [ ] | [ ] | 待开始 | 生产前收口 |
+| B15 | 前端 API 接入 | `src/api`、`src/services`、Pinia store 替换 mock、SSE/RAG 上传 | [x] | [x] | [x] | 无 | 分页面逐步切换 |
+| B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [ ] | [ ] | In Progress | 生产前收口 |
 
 ## 阶段记录模板
 
@@ -944,6 +944,52 @@
   - [x] 阶段范围已确认：新增前端 API adapter 与服务层，分页面替换 Pinia mock 读取/写入路径，优先接 bootstrap、thread/message、SSE、RAG 上传、settings overview。
   - [x] 验收标准已确认：默认无后端时仍可使用 mock；配置后端地址后走 Spring API；输入框下方文件按钮作为 RAG 上传索引入口；现有 4 个页面 E2E 不回归。
   - [x] 依赖和风险已记录：依赖 B04-B14 后端接口；前端切换必须保留 query/localStorage/default active thread 规则，避免一次性大改所有 store。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：B15 无数据库迁移；新增前端 API adapter、SSE client 和可选后端模式。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `src/api/session.js`
+    - `src/api/http.js`
+    - `src/api/bootstrap.js`
+    - `src/api/threads.js`
+    - `src/api/rag.js`
+    - `src/api/settings.js`
+    - `src/services/sseClient.js`
+    - `src/stores/thread.js`
+    - `src/views/MainWorkspace.vue`
+    - `src/views/SystemSettings.vue`
+    - `__tests__/thread.test.js`
+  - 自测命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
+  - 测试结果：
+    - Vitest：4 files / 7 tests passed，新增 backend bootstrap hydrate 映射测试。
+    - Vite build：通过。
+    - Playwright：101 passed，确认默认 mock 模式、工作台文件按钮旧行为和 `/settings` 平台入口不回归。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - B15 采用后端可选模式：未配置 `VITE_AGENT_DESK_API_BASE_URL`、`agentDesk.api.accessToken`、`agentDesk.api.projectId` 时不触发后端请求，保持现有 mock 行为。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段
+
+### B16 - 观测、安全与部署
+
+- Planning Agent:
+  - [x] 阶段范围已确认：生产前收口观测、安全与部署，包括 metrics/health 扩展、敏感配置校验、Docker/Compose 生产化建议、CI 验证命令和部署文档。
+  - [x] 验收标准已确认：不写真实密钥；默认开发体验不破坏；后端、Python、前端测试命令形成可复用发布检查；Git 推送后工作区保持干净。
+  - [x] 依赖和风险已记录：依赖 B01-B15；真实生产部署仍需外部域名、证书、密钥托管和 CI 环境变量，当前阶段先做本仓库可验证闭环。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成

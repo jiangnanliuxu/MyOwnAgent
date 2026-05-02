@@ -41,4 +41,32 @@ describe('thread store', () => {
     const context = store.hydrateFromRoute('missing-thread');
     expect(context.id).toBe('session-review');
   });
+
+  it('can hydrate thread contexts from backend bootstrap payload', () => {
+    const store = useThreadStore();
+    const applied = store.applyBackendBootstrap({
+      folders: [{ name: 'backend/src', path: 'backend/src' }],
+      threads: {
+        'backend-review': {
+          id: '00000000-0000-0000-0000-000000000001',
+          client_key: 'backend-review',
+          folder: 'backend/src',
+          file: 'backend/src/App.java',
+          label: 'review-agent',
+          summary: '后端审查',
+          role_keys: ['primary', 'review'],
+          focus_role_key: 'review',
+          role_status: '已编排'
+        }
+      },
+      recent_messages: {
+        'backend-review': [{ role: 'agent', agent_name: 'review-agent', content: '后端消息', status: 'completed' }]
+      }
+    });
+
+    expect(applied).toBe(true);
+    expect(store.getContext('backend-review').backendId).toBe('00000000-0000-0000-0000-000000000001');
+    expect(store.getThreadIdsForFolder('backend/src')).toEqual(['backend-review']);
+    expect(store.conversations['backend-review'][0].text).toBe('后端消息');
+  });
 });

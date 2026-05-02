@@ -14,6 +14,7 @@ const { show: showToast } = useToast();
 const openFolders = ref(new Set(['src/auth']));
 const composerText = ref(null);
 const folderInput = ref(null);
+const ragFileInput = ref(null);
 const contextChip = ref('已附带当前目录与最近建议');
 const workflowAgents = [
   {
@@ -126,7 +127,7 @@ function scrollConversationToBottom() {
   });
 }
 
-function sendMessage() {
+async function sendMessage() {
   const node = composerText.value;
   const text = node?.textContent.trim() || '';
   if (!text) {
@@ -142,6 +143,9 @@ function sendMessage() {
     title: '主助手',
     text: `已把这条请求绑定到 ${context.folder} / ${context.label}。下一步会优先让 ${roleNames} 接力处理。`
   });
+  threadStore.sendMessageToBackend(context.id, text).catch(() => {
+    contextChip.value = '后端消息发送失败，已保留本地会话';
+  });
   node.textContent = '';
   showToast('已加入当前会话');
   scrollConversationToBottom();
@@ -155,9 +159,28 @@ function onComposerKeydown(event) {
 }
 
 function attachFolder() {
+  if (threadStore.backendReady && activeContext.value.backendId) {
+    ragFileInput.value?.click();
+    return;
+  }
   appendText(`附加目录：${activeContext.value.folder}`);
   contextChip.value = `已附加 ${activeContext.value.folder}`;
   showToast('已附加当前目录');
+}
+
+async function uploadRagFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    await threadStore.uploadRagFile(activeContext.value.id, file);
+    contextChip.value = `已上传索引 ${file.name}`;
+    showToast(`已上传索引：${file.name}`);
+  } catch {
+    contextChip.value = '上传索引失败';
+    showToast('上传索引失败，已保留本地会话');
+  } finally {
+    event.target.value = '';
+  }
 }
 
 function insertTerminal() {
@@ -166,7 +189,8 @@ function insertTerminal() {
   showToast('已插入终端输出占位');
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await threadStore.hydrateFromBackend();
   const context = threadStore.hydrateFromRoute(route.query.thread);
   setOpenFolders([context.folder]);
 });
@@ -324,6 +348,13 @@ watch(
                   <path d="M6 4h8l4 4v12H6z"></path>
                 </svg>
               </button>
+              <input
+                id="composer-rag-file-input"
+                ref="ragFileInput"
+                class="visually-hidden-file"
+                type="file"
+                @change="uploadRagFile"
+              />
               <button class="icon-button" id="composer-insert-terminal" type="button" data-tooltip="插入终端输出" @click="insertTerminal">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m5 7 4 5-4 5"></path>

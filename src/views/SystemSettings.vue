@@ -1,10 +1,12 @@
 <script setup>
-import { reactive } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import TopNav from '../components/layout/TopNav.vue';
 import { useModal } from '../composables/useModal';
 import { useSectionDirectory } from '../composables/useSectionDirectory';
 import { useToast } from '../composables/useToast';
 import { COMPRESSION_OPTIONS } from '../data';
+import { fetchSettingsOverview } from '../api/settings';
+import { apiSession, isBackendConfigured } from '../api/session';
 
 const { open } = useModal();
 const { show: showToast } = useToast();
@@ -21,6 +23,7 @@ const segmentedState = reactive({
   density: '紧凑',
   guard: '开启'
 });
+const settingsOverview = ref(null);
 
 function selectSegment(group, value) {
   segmentedState[group] = value;
@@ -96,13 +99,45 @@ function openPlatformCard(id) {
     'open-memory-backup': ['记忆与备份', '当前备份策略：压缩前生成阶段快照，保留角色 Prompt、会话摘要和交付结论。']
   };
   const [title, copy] = cards[id];
+  const backendCopy = platformBackendCopy(id);
   open({
     modalTitle: title,
     modalSubtitle: '这里先作为平台入口原型展示，后续可接真实列表。',
     saveLabel: '知道了',
-    content: `<div class="value-box modal-field-full">${copy}</div>`
+    content: `<div class="value-box modal-field-full">${backendCopy || copy}</div>`
   });
 }
+
+function platformBackendCopy(id) {
+  const overview = settingsOverview.value;
+  if (!overview) return '';
+  if (id === 'open-task-queue') {
+    const queue = overview.task_queue || {};
+    return `排队：${queue.queued ?? 0}，运行中：${queue.running ?? 0}，失败：${queue.failed ?? 0}，RAG 索引排队：${queue.rag_index_queued ?? 0}。`;
+  }
+  if (id === 'open-run-log') {
+    const logs = overview.recent_logs || [];
+    return logs.length ? logs.map((log) => `${log.level} / ${log.type}：${log.message}`).join('<br />') : '暂无运行日志。';
+  }
+  if (id === 'open-tool-permission') {
+    const auth = overview.tool_authorization || {};
+    return `授权模式：${auth.mode || 'approval_required'}；密钥策略：${auth.secret_policy || 'secret_ref_only'}。`;
+  }
+  if (id === 'open-memory-backup') {
+    const backup = overview.backup || {};
+    return `备份：${backup.enabled ? '开启' : '关闭'}；目标：${backup.target || 'minio'}；保留：${backup.retention_days || 7} 天。`;
+  }
+  return '';
+}
+
+onMounted(async () => {
+  if (!isBackendConfigured()) return;
+  try {
+    settingsOverview.value = await fetchSettingsOverview(apiSession().projectId);
+  } catch {
+    settingsOverview.value = null;
+  }
+});
 </script>
 
 <template>
