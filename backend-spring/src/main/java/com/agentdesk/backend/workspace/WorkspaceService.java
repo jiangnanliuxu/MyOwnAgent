@@ -124,7 +124,7 @@ public class WorkspaceService {
                 ? idempotencyKey.trim()
                 : request.clientMessageId();
         WorkspaceDtos.SendMessageResponse response = workspaceRepository.sendMessage(threadId, request, effectiveIdempotencyKey);
-        agentJobService.enqueueMockJob(threadId, response, request);
+        agentJobService.enqueueJob(projectId, threadId, response, request);
         return response;
     }
 

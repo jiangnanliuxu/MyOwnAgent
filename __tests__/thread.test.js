@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { ACTIVE_THREAD_STORAGE_KEY } from '../src/data';
 import { useThreadStore } from '../src/stores/thread';
+import { parseEventStream } from '../src/services/sseClient';
 
 function installLocalStorage() {
   const storage = new Map();
@@ -68,5 +69,20 @@ describe('thread store', () => {
     expect(store.getContext('backend-review').backendId).toBe('00000000-0000-0000-0000-000000000001');
     expect(store.getThreadIdsForFolder('backend/src')).toEqual(['backend-review']);
     expect(store.conversations['backend-review'][0].text).toBe('后端消息');
+  });
+
+  it('parses backend SSE replay and applies the completed agent message', () => {
+    const store = useThreadStore();
+    store.appendConversationBubble('session-review', { kind: 'agent', title: '主助手', text: '等待模型回应...' });
+    const events = parseEventStream(`
+id: 7
+event: message_completed
+data: {"id":7,"thread_id":"thread","type":"message_completed","data":{"id":"placeholder-1","agent_name":"主助手","content":"真实 LLM 回复"},"created_at":"2026-05-02T00:00:00Z"}
+
+`);
+
+    store.applyBackendAgentEvents('session-review', events, 'placeholder-1');
+
+    expect(store.currentConversation.at(-1).text).toBe('真实 LLM 回复');
   });
 });

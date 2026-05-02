@@ -3,6 +3,7 @@ package com.agentdesk.backend.role;
 import com.agentdesk.backend.bootstrap.BootstrapSeedData;
 import com.agentdesk.backend.common.error.BusinessException;
 import com.agentdesk.backend.common.error.ErrorCode;
+import com.agentdesk.backend.secret.InMemorySecretVault;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,12 +26,14 @@ import java.util.UUID;
 public class InMemoryRoleRepository implements RoleRepository {
 
     private final ObjectMapper objectMapper;
+    private final InMemorySecretVault secretVault;
     private final Map<UUID, ProjectState> projects = new LinkedHashMap<>();
     private final Map<UUID, UUID> roleProjects = new LinkedHashMap<>();
     private final Map<UUID, UUID> folderProjects = new LinkedHashMap<>();
 
-    public InMemoryRoleRepository(ObjectMapper objectMapper) {
+    public InMemoryRoleRepository(ObjectMapper objectMapper, InMemorySecretVault secretVault) {
         this.objectMapper = objectMapper;
+        this.secretVault = secretVault;
     }
 
     @Override
@@ -332,7 +335,9 @@ public class InMemoryRoleRepository implements RoleRepository {
         patch.fields().forEachRemaining(entry -> {
             if ("api_key".equals(entry.getKey()) || "apiKey".equals(entry.getKey())) {
                 if (entry.getValue().isTextual() && StringUtils.hasText(entry.getValue().asText())) {
-                    merged.put("secret_ref", "secret://project/" + projectId + "/roles/" + roleId + "/api-key");
+                    String secretRef = "secret://project/" + projectId + "/roles/" + roleId + "/api-key";
+                    merged.put("secret_ref", secretRef);
+                    secretVault.put(secretRef, entry.getValue().asText());
                 }
             } else {
                 merged.set(entry.getKey(), entry.getValue());

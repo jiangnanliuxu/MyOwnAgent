@@ -134,8 +134,7 @@ public class JdbcBootstrapRepository implements BootstrapRepository {
                             tag = EXCLUDED.tag,
                             description = EXCLUDED.description,
                             short_description = EXCLUDED.short_description,
-                            is_builtin = EXCLUDED.is_builtin,
-                            config = EXCLUDED.config
+                            is_builtin = EXCLUDED.is_builtin
                         """)
                 .param("project_id", projectId)
                 .param("client_key", role.clientKey())

@@ -5,6 +5,7 @@ import { fetchBootstrap } from '../api/bootstrap';
 import { uploadThreadRagFile } from '../api/rag';
 import { isBackendConfigured, apiSession } from '../api/session';
 import { sendThreadMessage } from '../api/threads';
+import { fetchThreadEvents } from '../services/sseClient';
 
 const DEFAULT_THREAD_ID = 'session-review';
 const THREAD_STATE_STORAGE_KEY = 'agentDesk.threadState.v1';
@@ -269,7 +270,7 @@ export const useThreadStore = defineStore('thread', () => {
     const context = getContext(threadId);
     if (!isBackendConfigured() || !context.backendId) return null;
     const clientMessageId = options.clientMessageId || `web-${Date.now().toString(36)}`;
-    return sendThreadMessage(
+    const response = await sendThreadMessage(
       context.backendId,
       {
         client_message_id: clientMessageId,
@@ -279,6 +280,14 @@ export const useThreadStore = defineStore('thread', () => {
       },
       clientMessageId
     );
+    try {
+      const placeholderId = response?.agent_placeholder?.id || response?.agentPlaceholder?.id;
+      const events = await fetchThreadEvents(context.backendId, 0, { replayOnly: true });
+      applyBackendAgentEvents(context.id, events, placeholderId);
+    } catch (error) {
+      backendError.value = error.message || 'SSE 回放失败';
+    }
+    return response;
   }
 
   async function uploadRagFile(threadId, file) {
@@ -376,6 +385,52 @@ export const useThreadStore = defineStore('thread', () => {
     persistState();
   }
 
+  function updateLastAgentBubble(threadId, patch) {
+    const context = getContext(threadId);
+    const conversation = conversations[context.id] || [];
+    for (let index = conversation.length - 1; index >= 0; index -= 1) {
+      if (conversation[index]?.kind === 'agent') {
+        Object.assign(conversation[index], patch);
+        persistState();
+        return conversation[index];
+      }
+    }
+    appendConversationBubble(context.id, { kind: 'agent', title: patch.title || '主助手', text: patch.text || '' });
+    return conversations[context.id].at(-1);
+  }
+
+  function applyBackendAgentEvents(threadId, events, placeholderId) {
+    if (!placeholderId) return;
+    events.forEach((event) => {
+      const payload = event.payload?.data || event.payload;
+      if (!payload) return;
+      if (event.type === 'message_delta' && payload.message_id === placeholderId) {
+        updateLastAgentBubble(threadId, {
+          title: payload.agent_name || '主助手',
+          text: payload.content || ''
+        });
+      }
+      if (event.type === 'tool_call' && payload.message_id === placeholderId) {
+        updateLastAgentBubble(threadId, {
+          title: '主助手',
+          text: `正在调用开发工具：${payload.name}`
+        });
+      }
+      if (event.type === 'tool_result' && payload.message_id === placeholderId && payload.success === false) {
+        updateLastAgentBubble(threadId, {
+          title: '主助手',
+          text: `开发工具 ${payload.name} 调用失败，正在继续整理回答。`
+        });
+      }
+      if (event.type === 'message_completed' && payload.id === placeholderId) {
+        updateLastAgentBubble(threadId, {
+          title: payload.agent_name || '主助手',
+          text: payload.content || ''
+        });
+      }
+    });
+  }
+
   return {
     contexts,
     fileGroups,
@@ -403,6 +458,8 @@ export const useThreadStore = defineStore('thread', () => {
     addThreadForFile,
     updateThread,
     appendConversationBubble,
+    updateLastAgentBubble,
+    applyBackendAgentEvents,
     sendMessageToBackend,
     uploadRagFile
   };

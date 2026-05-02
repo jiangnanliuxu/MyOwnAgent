@@ -4,6 +4,7 @@ import com.agentdesk.backend.bootstrap.BootstrapRepository;
 import com.agentdesk.backend.bootstrap.BootstrapSeedData;
 import com.agentdesk.backend.common.error.BusinessException;
 import com.agentdesk.backend.common.error.ErrorCode;
+import com.agentdesk.backend.secret.InMemorySecretVault;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,11 +30,18 @@ public class JdbcRoleRepository implements RoleRepository {
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
     private final BootstrapRepository bootstrapRepository;
+    private final InMemorySecretVault secretVault;
 
-    public JdbcRoleRepository(JdbcClient jdbcClient, ObjectMapper objectMapper, BootstrapRepository bootstrapRepository) {
+    public JdbcRoleRepository(
+            JdbcClient jdbcClient,
+            ObjectMapper objectMapper,
+            BootstrapRepository bootstrapRepository,
+            InMemorySecretVault secretVault
+    ) {
         this.jdbcClient = jdbcClient;
         this.objectMapper = objectMapper;
         this.bootstrapRepository = bootstrapRepository;
+        this.secretVault = secretVault;
     }
 
     @Override
@@ -398,7 +406,9 @@ public class JdbcRoleRepository implements RoleRepository {
         patch.fields().forEachRemaining(entry -> {
             if ("api_key".equals(entry.getKey()) || "apiKey".equals(entry.getKey())) {
                 if (entry.getValue().isTextual() && StringUtils.hasText(entry.getValue().asText())) {
-                    merged.put("secret_ref", "secret://project/" + projectId + "/roles/" + roleId + "/api-key");
+                    String secretRef = "secret://project/" + projectId + "/roles/" + roleId + "/api-key";
+                    merged.put("secret_ref", secretRef);
+                    secretVault.put(secretRef, entry.getValue().asText());
                 }
             } else {
                 merged.set(entry.getKey(), entry.getValue());

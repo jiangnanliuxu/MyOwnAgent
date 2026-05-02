@@ -55,6 +55,8 @@ agent-desk:
     milvus:
       enabled: false
       endpoint: http://localhost:19530
+  developer-tools:
+    project-root: ${AGENT_DESK_PROJECT_ROOT:..}
 
 ---
 spring:

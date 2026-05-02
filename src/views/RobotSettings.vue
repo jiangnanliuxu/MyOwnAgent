@@ -93,10 +93,11 @@ function openModelConfig() {
       </div>
     `,
     onSave(modalBody) {
+      const apiKeyInput = modalBody.querySelector('#provider-key-input').value.trim();
       roleStore.updateRole(roleStore.activeRoleId, {
         provider: modalBody.querySelector('#provider-name-input').value.trim(),
         officialUrl: modalBody.querySelector('#provider-url-input').value.trim(),
-        apiKey: modalBody.querySelector('#provider-key-input').value.trim(),
+        apiKey: apiKeyInput.startsWith('已') || apiKeyInput.includes('secret_ref') ? '' : apiKeyInput,
         endpoint: modalBody.querySelector('#provider-endpoint-input').value.trim(),
         apiFormat: modalBody.querySelector('#provider-format-input').value,
         model: modalBody.querySelector('#provider-model-input').value.trim(),

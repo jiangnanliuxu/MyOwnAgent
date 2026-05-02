@@ -26,7 +26,7 @@
 
 | 当前阶段 | 状态 | 阻塞项 | 下一步 |
 |----------|------|--------|--------|
-| B19 | In Progress | 无 | Planning Agent 开始本地全链路联调脚本规划 |
+| B20 | In Progress | 无 | Planning Agent 开始真实 Provider 联调与工具治理扩展规划 |
 
 ## 阶段拆分
 
@@ -51,7 +51,8 @@
 | B16 | 观测、安全与部署 | metrics、告警、权限、密钥、Docker prod、CI | [x] | [x] | [x] | 无 | 生产前收口完成 |
 | B17 | Role/Skill/MCP 前端接入 | `roles`、`skills`、`mcp` API adapter，Pinia store 后端可选读写，能力页联调 | [x] | [x] | [x] | 无 | 保持 mock fallback |
 | B18 | 前端认证与后端模式入口 | 登录/注册入口、token/projectId 持久化、后端模式状态提示、登出 | [x] | [x] | [x] | 无 | 解决手动 localStorage 配置 |
-| B19 | 本地全链路联调脚本 | Docker infra、Spring dev、前端后端模式、认证/bootstrap/RAG smoke 检查 | [x] | [ ] | [ ] | In Progress | 降低手动验收成本 |
+| B19 | 真实 LLM/SSE/工具调用链路修复 | Spring OpenAI-compatible Chat Completions、前端 SSE 回放、受控只读开发工具、模型密钥临时托管 | [x] | [x] | [x] | 无 | SiliconFlow 兼容请求结构已用本地 mock 验证 |
+| B20 | 真实 Provider 联调与工具治理扩展 | 有效 API Key 下的 SiliconFlow 真连接、工具授权 UI、工具调用审计展示、失败重试策略 | [x] | [ ] | [ ] | In Progress | B19 完成后自动进入 |
 
 ## 阶段记录模板
 
@@ -1136,12 +1137,76 @@
   - [x] Test Done
   - [x] Planning Agent 已批准进入下一阶段：自动进入 B19。
 
-### B19 - 本地全链路联调脚本
+### B19 - 真实 LLM/SSE/工具调用链路修复
 
 - Planning Agent:
-  - [x] 阶段范围已确认：提供可复用本地 smoke 验收脚本或命令入口，串联 Docker infra、Spring dev profile、前端后端模式、认证、bootstrap、RAG 上传/查询基础检查。
-  - [x] 验收标准已确认：脚本不写真实密钥；失败时输出明确步骤；不依赖用户手动复制 token；默认不破坏现有 mock 前端测试。
-  - [x] 依赖和风险已记录：依赖 B02 Docker infra、B03 Auth、B04 Bootstrap、B11/B12 RAG 和 B18 前端会话入口；如本机端口被占用，脚本需要可诊断而不是静默失败。
+  - [x] 阶段范围已确认：修复前端发送消息后只显示占位回复的问题；Spring 后端接入 OpenAI-compatible Chat Completions；模型可调用受控只读开发工具；前端通过鉴权 SSE replay 更新助手气泡。
+  - [x] 验收标准已确认：模型配置使用机器人设置页的 endpoint/api_format/model/api_key；真实 API Key 不落库明文；工具只允许项目文件列表、文件读取、`rg` 搜索；无可用模型配置时保留明确 fallback。
+  - [x] 依赖和风险已记录：依赖 B06 Role 配置、B09 SSE、B18 后端会话入口；当前密钥托管为 Spring 进程内临时 vault，重启后需要重新保存 API Key；真实 SiliconFlow 调用需要用户本机提供有效 key。
+- Development Agent:
+  - [x] 代码实现完成
+  - [x] 数据库迁移/配置更新完成：无新增迁移；修复 JDBC seed 不再覆盖已保存 role config。
+  - [x] 自测命令已运行
+  - 变更文件：
+    - `backend-spring/src/main/java/com/agentdesk/backend/llm/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/tools/DeveloperToolService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/secret/InMemorySecretVault.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentLlmService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/AgentJobService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/workspace/WorkspaceService.java`
+    - `backend-spring/src/main/java/com/agentdesk/backend/role/**`
+    - `backend-spring/src/main/java/com/agentdesk/backend/bootstrap/JdbcBootstrapRepository.java`
+    - `src/services/sseClient.js`
+    - `src/stores/thread.js`
+    - `src/views/RobotSettings.vue`
+    - `__tests__/thread.test.js`
+    - `backend-spring/src/test/java/com/agentdesk/backend/llm/OpenAiCompatibleLlmGatewayTest.java`
+    - `backend-spring/src/test/java/com/agentdesk/backend/tools/DeveloperToolServiceTest.java`
+  - 自测命令：
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `cd backend-spring && ./gradlew test`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+    - `cd backend-spring && ./gradlew bootJar`
+- Testing Agent:
+  - [x] 单元测试通过
+  - [x] 集成测试通过
+  - [x] 回归测试通过
+  - 测试命令：
+    - `git diff --check`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:unit`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run build`
+    - `PATH=/Users/yangzhecheng/.nvm/versions/node/v22.22.1/bin:$PATH npm run test:e2e`
+    - `cd backend-spring && ./gradlew test`
+    - `cd backend-spring && ./gradlew bootJar`
+    - `cd agent-python && .venv/bin/python -m pytest && .venv/bin/python -m compileall app tests`
+    - Spring dev + local `/v1/chat/completions` mock：注册用户、保存 `Pro/zai-org/GLM-4.7` Chat Completions 配置、发送消息、SSE replay 验证 `tool_call`、`tool_result`、`message_completed`
+  - 测试结果：
+    - Vitest：5 files / 13 tests passed，新增 SSE replay 解析与助手气泡更新测试。
+    - Spring：`./gradlew test` 通过，新增 OpenAI Chat Completions 请求体/工具调用解析测试和开发工具边界测试。
+    - Vite build：通过。
+    - Playwright：102 passed；首次复用旧 Vite 后端环境导致 Mock 文案断言失败，停掉旧服务后干净复跑通过。
+    - Python Agent：8 passed，`compileall app tests` 通过；本机 Python 3.9 + LibreSSL 触发 urllib3 兼容 warning，不影响测试结果。
+    - SiliconFlow 兼容模拟：本地 mock 收到两次 `/v1/chat/completions`，模型为 `Pro/zai-org/GLM-4.7`；第二次请求包含 tool result；SSE 事件包含 `tool_call`、`tool_result` 和最终内容 `模拟 LLM 已调用 project_search 工具并生成回复。`
+    - 真实 SiliconFlow 调用：本机未检测到 `SILICONFLOW_API_KEY`，未执行真实外部请求。
+- Bugs:
+  - [x] 无阻塞 bug
+  - 修复记录：
+    - 修复前端只追加本地占位、不消费后端 SSE 的问题。
+    - 修复原生 `EventSource` 不能带 Authorization 导致后端 SSE 无法在后端模式下读取的问题，新增 fetch replay parser。
+    - 修复 Spring 仍生成固定 Mock Agent 内容的问题，改为优先走 LLM，未配置时明确 fallback。
+    - 修复 role seed 每次 bootstrap/lookup 覆盖用户模型配置的问题。
+    - 修复 LLM 角色解析优先级，按编排后的 `toRoleKey` 使用模型配置，再回退 focus role。
+- Gate:
+  - [x] Dev Done
+  - [x] Test Done
+  - [x] Planning Agent 已批准进入下一阶段：自动进入 B20。
+
+### B20 - 真实 Provider 联调与工具治理扩展
+
+- Planning Agent:
+  - [x] 阶段范围已确认：在用户提供有效 SiliconFlow API Key 后执行真实外部调用联调；把工具调用结果、失败原因和审计记录进一步展示到前端；补充工具授权和重试策略。
+  - [x] 验收标准已确认：不打印真实 API Key；真实请求仍走 Spring 安全边界；工具调用必须可审计、可限流、可在 UI 中解释；外部 Provider 失败不阻断消息入库。
+  - [x] 依赖和风险已记录：依赖 B19 LLM/工具链路；真实 Provider 可能受网络、余额、模型权限、限流影响，必须保留本地 mock 回归路径。
 - Development Agent:
   - [ ] 代码实现完成
   - [ ] 数据库迁移/配置更新完成
